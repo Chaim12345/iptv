@@ -1,0 +1,731 @@
+/* Global Resets & Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Roboto', Arial, sans-serif;
+    background-color: #1a1a1a; /* Dark background */
+    color: #e0e0e0; /* Light text */
+    line-height: 1.6;
+    font-size: 16px;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+h1, h2, h3 {
+    font-weight: 500;
+    margin-bottom: 0.5em;
+}
+
+input[type="text"],
+input[type="file"],
+button {
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 0.6em 0.8em;
+    border-radius: 4px;
+    border: 1px solid #444; /* Darker border */
+    background-color: #2c2c2c; /* Dark input background */
+    color: #e0e0e0;
+}
+
+input[type="file"] {
+    padding: 0.4em; /* Adjust for file input */
+}
+
+button {
+    background-color: #007bff; /* Primary button color - blue */
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+}
+
+/* Layout: App Container using Flexbox */
+#appContainer {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 300px;
+    background-color: #252525; /* Slightly lighter dark for sidebar */
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+    overflow-y: auto; /* If sidebar content is too long */
+}
+
+.sidebar-header h1 {
+    font-size: 1.8rem;
+    color: #007bff; /* Accent color for title */
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+#controls .control-group {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: #2c2c2c;
+    border-radius: 5px;
+}
+
+#controls .control-group h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: #ccc;
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+}
+
+#controls .control-group div {
+    margin-bottom: 0.8rem;
+}
+
+#controls label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+    color: #bbb;
+}
+
+#controls input[type="text"],
+#controls input[type="file"] {
+    width: 100%;
+}
+
+#controls button {
+    width: 100%;
+    padding: 0.8em;
+    margin-top: 0.5em; /* Add some space above buttons if needed */
+}
+#controls button#filterFavoritesButton {
+    background-color: #495057; /* A different color for filter button */
+    margin-top: 0.5em;
+}
+#controls button#filterFavoritesButton:hover {
+    background-color: #343a40;
+}
+#controls button#openSettingsButton {
+    background-color: #6c757d; /* Greyish color for settings button */
+    margin-top: 0.5em;
+}
+#controls button#openSettingsButton:hover {
+    background-color: #5a6268;
+}
+
+/* Curated Playlists Section */
+#curatedPlaylistsContainer {
+    /* Uses .control-group styles */
+}
+#curatedPlaylistsContainer h3 { /* Specific styling if needed, different from .control-group h2 */
+    font-size: 1.1rem; /* Slightly smaller than main control group titles */
+    color: #007bff; /* Accent color to highlight it */
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #444;
+}
+
+#curatedPlaylistsList {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    max-height: 180px; /* Adjust as needed */
+    overflow-y: auto;
+}
+
+#curatedPlaylistsList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0; /* Vertical padding, no horizontal for full width button opportunity */
+    margin-bottom: 0.3rem;
+    border-bottom: 1px solid #383838;
+}
+#curatedPlaylistsList li:last-child {
+    border-bottom: none;
+}
+
+#curatedPlaylistsList li span { /* For playlist name */
+    flex-grow: 1;
+    font-size: 0.9rem;
+    color: #c0c0c0;
+    margin-right: 0.5rem; /* Space before button */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#curatedPlaylistsList .load-curated-playlist-button {
+    background-color: #17a2b8; /* Info blue/teal color for load buttons */
+    color: white;
+    border: none;
+    padding: 0.3em 0.6em;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex-shrink: 0; /* Prevent button from shrinking */
+    transition: background-color 0.2s ease;
+}
+
+#curatedPlaylistsList .load-curated-playlist-button:hover {
+    background-color: #138496; /* Darker teal */
+}
+
+#curatedPlaylistsContainer .disclaimer {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 0.8rem;
+    text-align: center;
+}
+
+
+/* Recent Channels List */
+#recentChannelsContainer {
+    /* Uses .control-group styles already */
+}
+
+#recentChannelsContainer h2 { /* Already styled by .control-group h2 */
+    margin-bottom: 0.8rem; /* Adjust if needed */
+}
+
+#recentChannelsList {
+    list-style-type: none; /* Removes default bullet points */
+    padding: 0;
+    margin: 0;
+}
+
+#recentChannelsList li {
+    padding: 0.5rem 0.8rem; /* Consistent with channel items */
+    margin-bottom: 0.3rem; /* Space between items */
+    background-color: #383838; /* Slightly different from main channel list items for distinction */
+    color: #c0c0c0; /* Lighter text for recents */
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.85rem; /* Slightly smaller font for recent items */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Show ellipsis if name is too long */
+}
+
+#recentChannelsList li:hover {
+    background-color: #4a4a4a; /* Darker hover */
+    color: #fff;
+}
+
+#recentChannelsList .no-recents-message { /* Style for the "No recent channels" message */
+    font-style: italic;
+    color: #888;
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 0.5rem 0;
+}
+
+
+.sidebar-footer {
+    margin-top: auto; /* Pushes footer to bottom of sidebar */
+    text-align: center;
+    padding-top: 1rem;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* Main Content Area */
+#mainContent {
+    flex: 1;
+    display: flex;
+    padding: 1.5rem;
+    gap: 1.5rem; /* Space between channel list and player/EPG section */
+    overflow-y: auto; /* If main content itself needs to scroll */
+}
+
+#channelListSection {
+    flex: 0 0 320px; /* Fixed width for channel list */
+    background-color: #252525;
+    padding: 1rem;
+    border-radius: 5px;
+    overflow-y: auto;
+    max-height: calc(100vh - 3rem); /* Adjust based on padding */
+}
+
+#channelListSection h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: #ccc;
+}
+
+#channelSearch {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+#channelList {
+    list-style: none;
+}
+
+.channel-group-title {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #444;
+    color: #aaa;
+}
+.channel-group-title:first-child {
+    margin-top: 0;
+}
+
+.channel-item {
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid #383838;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+    border-radius: 3px;
+}
+
+.channel-item:hover {
+    background-color: #333;
+}
+
+.channel-item.selected {
+    background-color: #007bff;
+    color: white;
+}
+.channel-item.selected span:first-of-type { /* Target the channel name span, not the favorite icon */
+    color: white;
+}
+
+.favorite-toggle {
+    margin-left: auto; /* Pushes the star to the far right */
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: #ccc; /* Default empty star color */
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.favorite-toggle:hover {
+    color: #ffeb3b; /* Yellowish hover for empty star */
+    transform: scale(1.1);
+}
+
+.favorite-toggle.is-favorite {
+    color: #ffd700; /* Gold color for filled star */
+}
+.favorite-toggle.is-favorite:hover {
+    color: #ffc107; /* Darker gold on hover for filled star */
+}
+
+.channel-item img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    margin-right: 10px;
+    border-radius: 3px;
+    background-color: #333; /* Darker background for logos */
+}
+
+.channel-item span {
+    color: #d0d0d0;
+    flex-grow: 1;
+    font-size: 0.9rem;
+}
+
+/* Player and EPG Section */
+#playerAndEpgSection {
+    flex: 1; /* Takes remaining space */
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+#playerWrapper {
+    background-color: #000;
+    border-radius: 5px;
+    overflow: hidden; /* Ensures video corners are rounded if player itself isn't */
+    min-height: 300px; /* Minimum height for player */
+    display: flex; /* For centering video if needed */
+    align-items: center;
+    justify-content: center;
+}
+
+#player {
+    width: 100%;
+    height: auto; /* Maintain aspect ratio */
+    max-height: 60vh; /* Limit player height */
+    display: block; /* Remove extra space below video */
+}
+
+#epgDisplay {
+    background-color: #252525;
+    padding: 1rem;
+    border-radius: 5px;
+    overflow-y: auto;
+    flex-grow: 1; /* EPG takes available space below player */
+    min-height: 200px; /* Ensure EPG area is visible */
+    max-height: calc(100vh - 3rem - 60vh - 1.5rem); /* Example calculation */
+}
+
+.epg-placeholder-message {
+    color: #888;
+    text-align: center;
+    padding: 2rem;
+}
+
+#epgDisplay h3 {
+    font-size: 1.2rem;
+    color: #ccc;
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5em;
+    margin-bottom: 1rem;
+}
+
+#epgDisplay ul {
+    list-style-type: none;
+}
+
+.epg-program {
+    padding: 0.75rem;
+    border-bottom: 1px solid #383838;
+    margin-bottom: 0.5rem;
+    background-color: #2c2c2c;
+    border-radius: 3px;
+    transition: background-color 0.3s ease;
+}
+
+.epg-program:last-child {
+    border-bottom: none;
+}
+
+.epg-program-time {
+    font-weight: bold;
+    color: #aaa;
+    font-size: 0.9em;
+    margin-bottom: 0.25rem;
+}
+
+.epg-program-title {
+    font-weight: 500; /* Slightly bolder */
+    color: #e0e0e0;
+    margin-bottom: 0.3rem;
+}
+
+.epg-program-description {
+    font-size: 0.85em;
+    color: #bbb;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+    padding: 0 0.5rem;
+    cursor: pointer;
+    background-color: #333; /* Slightly different background for description area */
+    border-radius: 3px;
+    margin-top: 0.3rem;
+}
+
+.epg-program-description.visible {
+    max-height: 120px; /* Increased max-height */
+    padding: 0.5rem;
+}
+
+.epg-program.current {
+    background-color: #004085; /* Darker blue for current program */
+    border-left: 5px solid #007bff;
+}
+
+.epg-program.current .epg-program-title,
+.epg-program.current .epg-program-time {
+    color: #fff; /* White text for current program details */
+}
+
+
+/* Notification Area */
+#notifications {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    z-index: 1000;
+}
+
+.notification {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    opacity: 0.95;
+    transition: opacity 0.5s, transform 0.5s;
+}
+
+.notification.info {
+    background-color: #007bff; /* Blue for info */
+}
+
+.notification.success {
+    background-color: #28a745; /* Green for success */
+}
+
+.notification.error {
+    background-color: #dc3545; /* Red for error */
+}
+
+
+/* Basic Responsiveness */
+@media (max-width: 1200px) {
+    #mainContent {
+        flex-direction: column; /* Stack channel list and player/EPG */
+    }
+    #channelListSection {
+        flex-basis: auto; /* Allow it to take full width when stacked */
+        max-height: 40vh; /* Limit height when stacked */
+        margin-bottom: 1.5rem;
+    }
+    #playerAndEpgSection {
+        flex-basis: auto;
+    }
+    #player {
+        max-height: 50vh;
+    }
+     #epgDisplay {
+        max-height: 35vh;
+    }
+}
+
+@media (max-width: 768px) {
+    #appContainer {
+        flex-direction: column; /* Stack sidebar and main content */
+    }
+    #sidebar {
+        width: 100%;
+        max-height: 50vh; /* Limit sidebar height on small screens */
+        padding: 1rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .sidebar-header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    #controls .control-group {
+        margin-bottom: 1rem;
+        padding: 0.8rem;
+    }
+    #mainContent {
+        padding: 1rem;
+        gap: 1rem;
+    }
+    #channelListSection {
+         max-height: 35vh;
+    }
+     #player {
+        max-height: 40vh;
+    }
+    #epgDisplay {
+        min-height: 150px; /* Ensure it's still usable */
+        max-height: 30vh;
+    }
+    #notifications {
+        width: auto;
+        left: 10px;
+        right: 10px;
+        top: 10px;
+    }
+}
+
+/* Settings Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1001; /* Above notifications */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.6); /* Dim background */
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+    background-color: #2c2c2c; /* Dark background for modal content */
+    color: #e0e0e0;
+    margin: 10% auto; /* Centered, with space from top */
+    padding: 2rem;
+    border: 1px solid #555;
+    width: 90%;
+    max-width: 600px; /* Max width */
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    animation: slideIn 0.3s ease-out;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    color: #007bff; /* Accent color */
+}
+
+.close-button {
+    color: #aaa;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 0.5rem;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
+#epgUrlManagement h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.8rem;
+    color: #ccc;
+}
+#epgUrlManagement p {
+    font-size: 0.9rem;
+    color: #bbb;
+    margin-bottom: 1rem;
+}
+
+#epgUrlManagement .form-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+#newEpgUrlInput {
+    flex-grow: 1;
+    /* Uses global input styles */
+}
+
+#addEpgUrlButton {
+    /* Uses global button styles */
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+#epgUrlList {
+    list-style-type: none;
+    padding: 0;
+    max-height: 200px; /* Scrollable list */
+    overflow-y: auto;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background-color: #252525; /* Slightly different background for list area */
+}
+
+#epgUrlList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #383838;
+    font-size: 0.9rem;
+    word-break: break-all; /* Break long URLs */
+}
+
+#epgUrlList li:last-child {
+    border-bottom: none;
+}
+
+#epgUrlList .remove-epg-url-button {
+    background-color: #dc3545; /* Red for remove button */
+    color: white;
+    border: none;
+    padding: 0.3em 0.6em;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 1rem; /* Space from URL text */
+    transition: background-color 0.2s ease;
+}
+
+#epgUrlList .remove-epg-url-button:hover {
+    background-color: #c82333; /* Darker red on hover */
+}
+
+#recommendedEpgSection {
+    margin-top: 2rem; /* Space above this section */
+    border-top: 1px solid #444; /* Separator line */
+    padding-top: 1.5rem;
+}
+
+#recommendedEpgSection h4 {
+    font-size: 1.1rem;
+    color: #bbb;
+    margin-bottom: 0.8rem;
+}
+
+#recommendedEpgList {
+    list-style-type: none;
+    padding: 0;
+    max-height: 150px; /* Or adjust as needed */
+    overflow-y: auto;
+    /* Similar styling to #epgUrlList if desired, or keep distinct */
+}
+
+#recommendedEpgList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.2rem; /* Less padding than saved URLs if needed */
+    border-bottom: 1px solid #383838;
+    font-size: 0.9rem;
+}
+#recommendedEpgList li:last-child {
+    border-bottom: none;
+}
+
+#recommendedEpgList .add-recommended-epg-button {
+    background-color: #28a745; /* Green for "Add" */
+    color: white;
+    border: none;
+    padding: 0.3em 0.6em;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+#recommendedEpgList .add-recommended-epg-button:hover {
+    background-color: #218838; /* Darker green */
+}
+
+
+/* Animations for Modal */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+```
