@@ -1,0 +1,381 @@
+import os
+import json
+import tempfile
+import asyncio
+import aiohttp
+from flask import Flask, request, jsonify, render_template, send_from_directory
+from werkzeug.utils import secure_filename
+import xml.etree.ElementTree as ET
+import gzip
+import shutil
+from datetime import datetime, timedelta
+import requests
+from urllib.parse import urlparse
+import m3u8
+import time
+import glob
+
+# Create upload folders
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+EPG_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'epg')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(EPG_FOLDER, exist_ok=True)
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['EPG_FOLDER'] = EPG_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+
+# In-memory cache for link health
+link_health_cache = {}
+CACHE_DURATION = 3600  # 1 hour cache
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/channels')
+def get_channels():
+    playlists = {}
+    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        if filename.endswith('.json'):
+            playlist_name = os.path.splitext(filename)[0]
+            try:
+                with open(os.path.join(app.config['UPLOAD_FOLDER'], filename), 'r', encoding='utf-8') as f:
+                    playlists[playlist_name] = json.load(f)
+            except Exception as e:
+                print(f"Error loading playlist {filename}: {e}")
+    return jsonify(playlists)
+
+@app.route('/api/epg')
+def get_epg():
+    epg_path = os.path.join(app.config['EPG_FOLDER'], 'epg_data.json')
+    if os.path.exists(epg_path):
+        try:
+            with open(epg_path, 'r', encoding='utf-8') as f:
+                return jsonify(json.load(f))
+        except Exception as e:
+            return jsonify({'error': f'Error loading EPG data: {str(e)}'}), 500
+    return jsonify({'error': 'No EPG data available'}), 404
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    if file:
+        filename = secure_filename(file.filename)
+        
+        # Check if it's an EPG file
+        is_epg = filename.lower().endswith(('.xml', '.xml.gz'))
+        upload_folder = app.config['EPG_FOLDER'] if is_epg else app.config['UPLOAD_FOLDER']
+        
+        # Clear existing EPG files if uploading a new one
+        if is_epg:
+            for old_file in glob.glob(os.path.join(upload_folder, '*.xml*')):
+                try:
+                    os.remove(old_file)
+                except Exception as e:
+                    print(f"Error removing old EPG file {old_file}: {e}")
+        
+        filepath = os.path.join(upload_folder, filename)
+        file.save(filepath)
+        
+        try:
+            if filename.lower().endswith(('.m3u', '.m3u8')):
+                # Process M3U playlist
+                playlist = process_m3u(filepath, filename)
+                json_filename = f"{os.path.splitext(filename)[0]}.json"
+                with open(os.path.join(app.config['UPLOAD_FOLDER'], json_filename), 'w', encoding='utf-8') as f:
+                    json.dump(playlist, f, ensure_ascii=False, indent=2)
+                
+                return jsonify({
+                    'status': 'success',
+                    'type': 'playlist',
+                    'playlist': playlist,
+                    'filename': json_filename
+                })
+                
+            elif is_epg:
+                # Process EPG file
+                epg_data = process_epg(filepath)
+                return jsonify({
+                    'status': 'success',
+                    'type': 'epg',
+                    'message': 'EPG file uploaded successfully',
+                    'programs_count': len(epg_data.get('programs', []))
+                })
+                
+            else:
+                return jsonify({'error': 'Unsupported file format. Please upload .m3u, .m3u8, .xml, or .xml.gz files.'}), 400
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+    
+    return jsonify({'error': 'File upload failed'}), 500
+
+def process_epg(filepath):
+    """Process EPG XML file and return structured program data"""
+    programs = []
+    
+    # Handle gzipped XML
+    if filepath.endswith('.gz'):
+        with gzip.open(filepath, 'rb') as f:
+            tree = ET.parse(f)
+    else:
+        tree = ET.parse(filepath)
+    
+    root = tree.getroot()
+    
+    # Parse programs
+    for program in root.findall('.//programme'):
+        try:
+            channel_id = program.get('channel', '').strip()
+            start = program.get('start')
+            stop = program.get('stop')
+            
+            # Parse start and stop times
+            try:
+                start_time = datetime.strptime(start, '%Y%m%d%H%M%S %z' if ' ' in start else '%Y%m%d%H%M%S')
+                stop_time = datetime.strptime(stop, '%Y%m%d%H%M%S %z' if ' ' in stop else '%Y%m%d%H%M%S')
+            except (ValueError, TypeError):
+                continue
+            
+            # Skip past programs
+            if stop_time < datetime.now(start_time.tzinfo) - timedelta(days=1):
+                continue
+                
+            title_elem = program.find('title')
+            desc_elem = program.find('desc')
+            
+            program_data = {
+                'channel_id': channel_id,
+                'start': start_time.isoformat(),
+                'stop': stop_time.isoformat(),
+                'title': title_elem.text if title_elem is not None else 'No Title',
+                'description': desc_elem.text if desc_elem is not None else '',
+                'duration': int((stop_time - start_time).total_seconds() / 60)  # in minutes
+            }
+            
+            # Add additional metadata if available
+            for elem in ['sub-title', 'category', 'episode-num', 'icon']:
+                if program.find(elem) is not None:
+                    program_data[elem] = program.find(elem).text
+            
+            programs.append(program_data)
+            
+        except Exception as e:
+            print(f"Error parsing program: {e}")
+            continue
+    
+    # Save processed EPG data
+    epg_data = {
+        'channels': list({p['channel_id'] for p in programs if p.get('channel_id')}),
+        'programs': programs,
+        'last_updated': datetime.now().isoformat(),
+        'total_programs': len(programs)
+    }
+    
+    # Save to file
+    epg_json_path = os.path.join(app.config['EPG_FOLDER'], 'epg_data.json')
+    with open(epg_json_path, 'w', encoding='utf-8') as f:
+        json.dump(epg_data, f, ensure_ascii=False, indent=2)
+    
+    return epg_data
+
+def process_m3u(filepath, filename):
+    channels = []
+    current_channel = {}
+    
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('#EXTINF'):
+            # Parse EXTINF line
+            current_channel = {}
+            # Extract attributes
+            attrs = {}
+            if ' ' in line:
+                attrs_str = line[line.find(' '):].strip()
+                for attr in attrs_str.split(' '):
+                    if '=' in attr:
+                        key, value = attr.split('=', 1)
+                        attrs[key.lower()] = value.strip('"\'')
+            
+            # Set channel properties
+            current_channel['name'] = attrs.get('tvg-name', 'Unknown')
+            current_channel['group'] = attrs.get('group-title', 'Ungrouped')
+            current_channel['logo'] = attrs.get('tvg-logo', '')
+            current_channel['id'] = attrs.get('tvg-id', '')
+            current_channel['tvg_id'] = attrs.get('tvg-id', '')
+            
+            # Handle the channel name (after the last comma in EXTINF line)
+            if ',' in line:
+                name = line[line.rfind(',') + 1:].strip()
+                if name and (not current_channel['name'] or current_channel['name'] == 'Unknown'):
+                    current_channel['name'] = name
+        
+        elif line and not line.startswith('#'):
+            # This is a URL line
+            if current_channel and 'url' not in current_channel:
+                current_channel['url'] = line
+                channels.append(current_channel)
+    
+    return {
+        'name': os.path.splitext(filename)[0],
+        'channels': channels,
+        'last_updated': datetime.now().isoformat(),
+        'total_channels': len(channels)
+    }
+
+@app.route('/api/check-links', methods=['POST'])
+def check_links():
+    data = request.get_json()
+    playlist_name = data.get('playlist')
+    
+    if not playlist_name:
+        return jsonify({'error': 'Playlist name is required'}), 400
+    
+    playlist_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{playlist_name}.json")
+    
+    if not os.path.exists(playlist_path):
+        return jsonify({'error': 'Playlist not found'}), 404
+    
+    try:
+        with open(playlist_path, 'r', encoding='utf-8') as f:
+            playlist = json.load(f)
+        
+        # Check each channel's URL
+        dead_links = []
+        alive_links = []
+        
+        for channel in playlist.get('channels', []):
+            url = channel.get('url')
+            if not url:
+                continue
+                
+            # Check cache first
+            cache_key = f"{playlist_name}:{url}"
+            if cache_key in link_health_cache:
+                cached = link_health_cache[cache_key]
+                if time.time() - cached['timestamp'] < CACHE_DURATION:
+                    if cached['alive']:
+                        alive_links.append(url)
+                    else:
+                        dead_links.append(url)
+                    continue
+            
+            # Check the URL
+            is_alive = check_stream_health(url)
+            
+            # Update cache
+            link_health_cache[cache_key] = {
+                'alive': is_alive,
+                'timestamp': time.time()
+            }
+            
+            if is_alive:
+                alive_links.append(url)
+            else:
+                dead_links.append(url)
+        
+        return jsonify({
+            'total': len(playlist.get('channels', [])),
+            'alive': len(alive_links),
+            'dead': len(dead_links),
+            'dead_links': dead_links
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def check_stream_health(url, timeout=10):
+    """Check if a stream URL is accessible"""
+    try:
+        # For HTTP/HTTPS URLs, use requests with a timeout
+        if url.startswith(('http://', 'https://')):
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            # For HLS streams, just check the master playlist
+            if url.endswith(('.m3u8', '.m3u')):
+                response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+                return response.status_code == 200
+            
+            # For direct streams, try to get the first few bytes
+            with requests.get(url, headers=headers, stream=True, timeout=timeout) as response:
+                response.raise_for_status()
+                # Read a small chunk to verify the stream
+                for _ in response.iter_content(1024):
+                    break
+                return True
+                
+        # For other protocols, we can't check easily
+        return True
+        
+    except Exception as e:
+        print(f"Error checking stream {url}: {e}")
+        return False
+
+@app.route('/api/remove-dead-links', methods=['POST'])
+def remove_dead_links():
+    data = request.get_json()
+    playlist_name = data.get('playlist')
+    
+    if not playlist_name:
+        return jsonify({'error': 'Playlist name is required'}), 400
+    
+    playlist_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{playlist_name}.json")
+    
+    if not os.path.exists(playlist_path):
+        return jsonify({'error': 'Playlist not found'}), 404
+    
+    try:
+        with open(playlist_path, 'r', encoding='utf-8') as f:
+            playlist = json.load(f)
+        
+        # Get dead links from the request or check them
+        dead_links = data.get('dead_links')
+        if not dead_links:
+            check_response = check_links()
+            if check_response.status_code != 200:
+                return check_response
+            dead_links = check_response.get_json().get('dead_links', [])
+        
+        # Remove dead links
+        original_count = len(playlist.get('channels', []))
+        playlist['channels'] = [
+            ch for ch in playlist.get('channels', [])
+            if ch.get('url') not in dead_links
+        ]
+        
+        # Save the updated playlist
+        with open(playlist_path, 'w', encoding='utf-8') as f:
+            json.dump(playlist, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            'status': 'success',
+            'removed': original_count - len(playlist.get('channels', [])),
+            'remaining': len(playlist.get('channels', [])),
+            'playlist': playlist_name
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    # Create necessary directories
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['EPG_FOLDER'], exist_ok=True)
+    
+    # Run the app
+    app.run(debug=True, host='0.0.0.0', port=5000)
