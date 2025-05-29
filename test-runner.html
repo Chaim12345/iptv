@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Player - Unit Tests</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        #testResults { background-color: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .test-suite { margin-bottom: 20px; }
+        .test-suite h2 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px;}
+        .test-case { margin-bottom: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 3px; }
+        .passed { background-color: #d4edda; color: #155724; border-left: 5px solid #28a745; }
+        .failed { background-color: #f8d7da; color: #721c24; border-left: 5px solid #dc3545; }
+        .error-details { font-size: 0.9em; color: #721c24; margin-top: 5px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>IPTV Player - Unit Tests</h1>
+    <div id="testResults">
+        <p>Running tests...</p>
+    </div>
+
+    <!-- Parsers -->
+    <script src="m3u-parser.js"></script>
+    <script src="epg-parser.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script> <!-- For EPG .gz tests if any -->
+
+    <!-- Test Suites -->
+    <script src="m3u-parser-tests.js"></script>
+    <script src="epg-parser-tests.js"></script>
+
+    <!-- Test Runner Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = ''; // Clear "Running tests..."
+
+            function displayResults(suiteName, results) {
+                const suiteDiv = document.createElement('div');
+                suiteDiv.className = 'test-suite';
+                
+                const title = document.createElement('h2');
+                title.textContent = suiteName;
+                suiteDiv.appendChild(title);
+
+                if (!results || results.length === 0) {
+                    const p = document.createElement('p');
+                    p.textContent = 'No tests found for this suite.';
+                    suiteDiv.appendChild(p);
+                    resultsDiv.appendChild(suiteDiv);
+                    return;
+                }
+
+                results.forEach(result => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = 'test-case ' + (result.passed ? 'passed' : 'failed');
+                    resultDiv.textContent = `${result.name}: ${result.passed ? 'Passed' : 'Failed'}`;
+                    
+                    if (!result.passed && result.error) {
+                        const errorDetails = document.createElement('div');
+                        errorDetails.className = 'error-details';
+                        errorDetails.textContent = `Error: ${result.error}`;
+                        resultDiv.appendChild(errorDetails);
+                    }
+                    suiteDiv.appendChild(resultDiv);
+                });
+                resultsDiv.appendChild(suiteDiv);
+            }
+
+            // Run M3U Tests
+            try {
+                const m3uResults = runM3UTests();
+                displayResults('M3U Parser Tests', m3uResults);
+                console.log('--- M3U Parser Tests ---');
+                m3uResults.forEach(r => console.log(`${r.name}: ${r.passed ? 'Passed' : 'Failed'} ${r.error ? '- ' + r.error : ''}`));
+            } catch (e) {
+                displayResults('M3U Parser Tests', [{ name: 'M3U Test Suite Execution', passed: false, error: 'Failed to run M3U tests: ' + e.toString() }]);
+                console.error('Failed to run M3U tests:', e);
+            }
+
+            // Run EPG Tests
+            try {
+                const epgResults = runEPGTests();
+                displayResults('EPG Parser Tests', epgResults);
+                 console.log('--- EPG Parser Tests ---');
+                epgResults.forEach(r => console.log(`${r.name}: ${r.passed ? 'Passed' : 'Failed'} ${r.error ? '- ' + r.error : ''}`));
+            } catch (e) {
+                displayResults('EPG Parser Tests', [{ name: 'EPG Test Suite Execution', passed: false, error: 'Failed to run EPG tests: ' + e.toString() }]);
+                console.error('Failed to run EPG tests:', e);
+            }
+        });
+    </script>
+</body>
+</html>
+```

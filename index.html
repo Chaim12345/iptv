@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Player</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="appContainer">
+        <aside id="sidebar">
+            <header class="sidebar-header">
+                <h1>IPTV Player</h1>
+            </header>
+            
+            <section id="controls">
+                <div class="control-group" id="m3uLoader">
+                    <h2>M3U Playlist</h2>
+                    <div>
+                        <label for="m3uFile">From file:</label>
+                        <input type="file" id="m3uFile" accept=".m3u,.m3u8" title="Load M3U/M3U8 from local file">
+                    </div>
+                    <div>
+                        <label for="m3uUrl">From URL:</label>
+                        <input type="text" id="m3uUrl" placeholder="M3U URL">
+                    </div>
+                    <button id="loadM3uButton">Load M3U</button>
+                    <!-- Old #errorMessage is removed, will use notifications -->
+                </div>
+
+                <div class="control-group" id="epgLoader">
+                    <h2>EPG Data (XMLTV)</h2>
+                    <div>
+                        <label for="epgFile">From file:</label>
+                        <input type="file" id="epgFile" accept=".xml,.xml.gz,.gz" title="Load XMLTV EPG from local file">
+                    </div>
+                    <div>
+                        <label for="epgUrl">From URL:</label>
+                        <input type="text" id="epgUrl" placeholder="EPG XML/GZ URL" value="https://epgshare01.online/epgshare01/epg_ripper_IL1.xml.gz">
+                    </div>
+                    <button id="loadEpgButton">Load EPG</button>
+                </div>
+
+                <div class="control-group" id="channelFilters">
+                    <h2>Filters</h2>
+                    <button id="filterFavoritesButton" title="Toggle display of favorite channels">Show All</button>
+                </div>
+
+                <div class="control-group" id="recentChannelsContainer">
+                    <h2>Recent Channels</h2>
+                    <ul id="recentChannelsList">
+                        <!-- Recent channels will be populated here -->
+                    </ul>
+                </div>
+
+                <div class="control-group" id="settingsControls">
+                    <h2>Settings</h2>
+                    <button id="openSettingsButton" title="Open application settings">App Settings</button>
+                </div>
+
+                <div class="control-group" id="curatedPlaylistsContainer">
+                    <h3>Discover Public Playlists</h3>
+                    <ul id="curatedPlaylistsList">
+                        <!-- Curated playlists will be populated here by app.js -->
+                    </ul>
+                    <p class="disclaimer">Note: Stream availability from public sources may vary.</p>
+                </div>
+            </section>
+            <footer class="sidebar-footer">
+                <p>IPTV Player v1.0</p>
+            </footer>
+        </aside>
+
+        <main id="mainContent">
+            <section id="channelListSection">
+                <h2>Channels</h2>
+                <input type="text" id="channelSearch" placeholder="Search channels..." title="Filter channels by name or ID">
+                <div id="channelList">
+                    <!-- Channels will be populated here -->
+                </div>
+            </section>
+            
+            <section id="playerAndEpgSection">
+                <div id="playerWrapper">
+                     <video id="player" controls autoplay>
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div id="epgDisplay">
+                    <p class="epg-placeholder-message">EPG data for the selected channel will appear here.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="notifications"></div> <!-- For dynamic feedback messages -->
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h2>Settings</h2>
+                <button id="closeSettingsButton" class="close-button" title="Close settings">&times;</button>
+            </header>
+            <section id="epgUrlManagement">
+                <h3>Manage EPG URLs</h3>
+                <p>URLs added here will be automatically loaded on startup.</p>
+                <div class="form-group">
+                    <input type="text" id="newEpgUrlInput" placeholder="Enter EPG URL (.xml or .xml.gz)">
+                    <button id="addEpgUrlButton">Add URL</button>
+                </div>
+                <ul id="epgUrlList">
+                    <!-- Saved EPG URLs will be listed here -->
+                </ul>
+            </section>
+            <section id="recommendedEpgSection">
+                <h4>Or, add from epgshare01.online recommendations:</h4>
+                <ul id="recommendedEpgList">
+                    <!-- Recommended EPGs will be populated here by app.js -->
+                </ul>
+            </section>
+            <!-- Add other settings sections here in the future if needed -->
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="m3u-parser.js"></script>
+    <script src="epg-parser.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+```
