@@ -1,0 +1,23 @@
+# Rust build artifacts
+target/
+**/target/
+
+# Node
+node_modules/
+**/node_modules/
+dist/
+frontend/dist/
+
+# wasm-pack output (generated)
+iptv-wasm/pkg/
+
+# Runtime data (fetched playlists, merged EPG, working set — regenerable)
+iptv-rs/data/
+
+# Logs
+*.log
+server.log
+
+# Tooling / editor state
+.omc/
+.DS_Store

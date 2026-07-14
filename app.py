@@ -8,7 +8,6 @@ import requests
 import asyncio
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
-from flask import request, jsonify
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
