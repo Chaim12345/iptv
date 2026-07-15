@@ -66,8 +66,8 @@ every phase.
 | STR-04 | Phase 3 — Live-Torrent Streaming Engine | Complete |
 | STR-05 | Phase 3 — Live-Torrent Streaming Engine | Partial |
 | OPS-02 | Phase 3 — Live-Torrent Streaming Engine | Partial |
-| JF-03 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
-| JF-04 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
-| JF-05 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
+| JF-03 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Complete |
+| JF-04 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Complete |
+| JF-05 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Complete |
 
 **Coverage:** 18/18 v2.0 requirements mapped. No orphans, no duplicates.

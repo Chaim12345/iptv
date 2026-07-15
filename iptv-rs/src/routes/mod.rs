@@ -64,6 +64,11 @@ pub fn build(store: Arc<AppStore>) -> Router {
         .route("/api/vod/resolve", get(vod_resolve))
         .route("/api/vod/probe", get(vod_probe))
         .route("/api/vod/stream", get(vod_stream))
+        // STRM library bridge for Jellyfin (Phase 4)
+        .route("/api/library/collections", get(list_collections).post(add_collection))
+        .route("/api/library/collections/:name", delete(delete_collection))
+        .route("/api/library/refresh", post(library_refresh))
+        .route("/api/library/status", get(library_status))
         // Curation pipeline
         .route("/api/pipeline/status", get(pipeline_status))
         .route("/api/pipeline/run", post(pipeline_run))
@@ -468,6 +473,66 @@ async fn vod_stream(
                 .into_response())
         }
     }
+}
+
+// ── STRM library bridge (Jellyfin) ──────────────────────────────────────────
+
+async fn list_collections(State(store): State<Arc<AppStore>>) -> Json<Value> {
+    Json(json!({ "collections": store.get_collections() }))
+}
+
+async fn add_collection(
+    State(store): State<Arc<AppStore>>,
+    Json(c): Json<crate::services::library::Collection>,
+) -> Result<Json<Value>, AppError> {
+    if c.name.trim().is_empty() || c.query.trim().is_empty() {
+        return Err(AppError::BadRequest("'name' and 'query' are required".into()));
+    }
+    store
+        .add_collection(c)
+        .map_err(|e| AppError::Internal(format!("Failed to save collection: {}", e)))?;
+    Ok(Json(json!({ "status": "success" })))
+}
+
+async fn delete_collection(
+    State(store): State<Arc<AppStore>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, AppError> {
+    match store
+        .remove_collection(&name)
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    {
+        true => Ok(Json(json!({ "status": "success", "deleted": true }))),
+        false => Err(AppError::NotFound(format!("Collection '{}' not found", name))),
+    }
+}
+
+/// Rebuild the STRM library from all collections (search → resolve → write STRM).
+async fn library_refresh(State(store): State<Arc<AppStore>>) -> Result<Json<Value>, AppError> {
+    let engine = require_engine(&store)?;
+    let client = crate::services::pipeline::http_client(30)
+        .ok_or_else(|| AppError::Internal("failed to build HTTP client".into()))?;
+    let cfg = store.config();
+    let collections = store.get_collections();
+    let stats = crate::services::library::refresh(
+        engine,
+        store.get_indexers(),
+        client,
+        &cfg.library_dir,
+        &cfg.public_url,
+        &collections,
+    )
+    .await;
+    Ok(Json(json!(stats)))
+}
+
+async fn library_status(State(store): State<Arc<AppStore>>) -> Json<Value> {
+    let cfg = store.config();
+    Json(json!({
+        "collections": store.get_collections().len(),
+        "strm_files": crate::services::library::count_strm(&cfg.library_dir),
+        "library_dir": cfg.library_dir,
+    }))
 }
 
 // ── Channels ───────────────────────────────────────────────────────────────

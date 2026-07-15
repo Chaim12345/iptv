@@ -8,6 +8,12 @@ pub struct AppConfig {
     pub working_file: PathBuf,
     pub indexers_file: PathBuf,
     pub torrent_cache: PathBuf,
+    /// STRM library root Jellyfin scans, and the collections config file.
+    pub library_dir: PathBuf,
+    pub library_file: PathBuf,
+    /// Public base URL SIGNAL is reachable at (used inside STRM files so
+    /// Jellyfin can reach /api/vod/stream). In docker set to http://iptv:5000.
+    pub public_url: String,
     pub max_upload_bytes: usize,
     pub port: u16,
     /// Concurrent stream probes during the curation pipeline.
@@ -30,6 +36,10 @@ impl AppConfig {
             working_file: data_dir.join("working_channels.json"),
             indexers_file: data_dir.join("indexers.json"),
             torrent_cache: data_dir.join("torrent-cache"),
+            library_dir: data_dir.join("library"),
+            library_file: data_dir.join("library.json"),
+            public_url: std::env::var("IPTV_PUBLIC_URL")
+                .unwrap_or_else(|_| "http://localhost:5000".to_string()),
             check_concurrency: std::env::var("IPTV_CHECK_CONCURRENCY")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -56,6 +66,7 @@ impl AppConfig {
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.upload_folder)?;
         std::fs::create_dir_all(&self.epg_folder)?;
+        std::fs::create_dir_all(&self.library_dir)?;
         Ok(())
     }
 

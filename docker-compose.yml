@@ -12,6 +12,8 @@ services:
     environment:
       - IPTV_PORT=5000
       - IPTV_DATA_DIR=/app/data
+      # STRM files embed this so the Jellyfin container can reach the stream API.
+      - IPTV_PUBLIC_URL=http://iptv:5000
     restart: unless-stopped
 
   # Jellyfin media server for end-to-end testing (Phase 4). Consumes SIGNAL's

@@ -7,6 +7,7 @@ use tracing::{error, info};
 use crate::config::AppConfig;
 use crate::models::{EpgData, Playlist, Programme};
 use crate::services::indexer::IndexerConfig;
+use crate::services::library::Collection;
 use crate::services::torrent::TorrentEngine;
 
 /// Progress of the background curation pipeline (fetch → dedupe → probe → EPG).
@@ -175,6 +176,8 @@ pub struct AppStore {
     indexers: RwLock<Vec<IndexerConfig>>,
     /// Live-torrent streaming engine (librqbit), initialized at startup.
     torrent: RwLock<Option<Arc<TorrentEngine>>>,
+    /// Operator-defined STRM library collections (no defaults ship).
+    library: RwLock<Vec<Collection>>,
 }
 
 impl AppStore {
@@ -187,7 +190,45 @@ impl AppStore {
             pipeline: RwLock::new(PipelineStatus::default()),
             indexers: RwLock::new(Vec::new()),
             torrent: RwLock::new(None),
+            library: RwLock::new(Vec::new()),
         }
+    }
+
+    // ── STRM library collections ──
+
+    pub fn get_collections(&self) -> Vec<Collection> {
+        self.library.read().unwrap().clone()
+    }
+
+    pub fn add_collection(&self, c: Collection) -> anyhow::Result<()> {
+        {
+            let mut list = self.library.write().unwrap();
+            list.retain(|x| x.name != c.name);
+            list.push(c);
+        }
+        self.persist_collections()
+    }
+
+    pub fn remove_collection(&self, name: &str) -> anyhow::Result<bool> {
+        let removed = {
+            let mut list = self.library.write().unwrap();
+            let before = list.len();
+            list.retain(|x| x.name != name);
+            before != list.len()
+        };
+        if removed {
+            self.persist_collections()?;
+        }
+        Ok(removed)
+    }
+
+    fn persist_collections(&self) -> anyhow::Result<()> {
+        let json = {
+            let list = self.library.read().unwrap();
+            serde_json::to_string_pretty(&*list)?
+        };
+        std::fs::write(&self.config.library_file, json)?;
+        Ok(())
     }
 
     /// Install the live-torrent streaming engine (built async in main).
@@ -301,6 +342,13 @@ impl AppStore {
             };
             *self.indexers.write().unwrap() =
                 loaded.unwrap_or_else(|| vec![IndexerConfig::internet_archive_default()]);
+        }
+
+        // Load STRM library collections (none by default — operator-defined).
+        if let Ok(content) = tokio::fs::read_to_string(&self.config.library_file).await {
+            if let Ok(list) = serde_json::from_str::<Vec<Collection>>(&content) {
+                *self.library.write().unwrap() = list;
+            }
         }
 
         Ok(())

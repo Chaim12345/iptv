@@ -1,6 +1,6 @@
 # Multi-stage build for IPTV-RS
 # Stage 1: Build WASM, frontend, and Rust binary
-FROM rust:1.77-bookworm AS builder
+FROM rust:1-bookworm AS builder
 
 # Install Node.js 20
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -47,9 +47,6 @@ COPY --from=builder /app/iptv-rs/target/release/iptv-rs /app/iptv-rs
 
 # Copy static assets (frontend build output)
 COPY --from=builder /app/iptv-rs/static /app/static
-
-# Copy templates if they exist
-COPY --from=builder /app/iptv-rs/templates /app/templates
 
 # Set working directory
 WORKDIR /app
