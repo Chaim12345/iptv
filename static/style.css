@@ -1,30 +1,38 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   SIGNAL — IPTV console
-   Broadcast control-room design system.
-   Palette: console slate, tally amber (cued), tally red (on air).
-   Type: Barlow Condensed (display) · IBM Plex Sans (body) · IBM Plex Mono (data)
+   SIGNAL — IPTV console  ·  "Rich Glassmorphism" 10-foot TV UI
+   Translucent panels floating over an ambient cinematic gradient.
+   Type: Sora (display) · Hanken Grotesk (body) · JetBrains Mono (labels)
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --console: #0c0f13;
+  --console: #0b0a12;
   --panel: #14181e;
   --panel-2: #1a202a;
   --line: #242c37;
   --line-soft: #1c232d;
   --text: #e9eef4;
-  --muted: #8794a3;
-  --faint: #5b6674;
+  --muted: #9aa3b5;
+  --faint: #6b7488;
   --amber: #f5a524;
-  --amber-soft: rgba(245, 165, 36, 0.14);
+  --amber-soft: rgba(245, 165, 36, 0.16);
   --live: #ff4d5a;
-  --live-soft: rgba(255, 77, 90, 0.14);
+  --live-soft: rgba(255, 77, 90, 0.16);
   --ok: #3dd68c;
-  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --body: "IBM Plex Sans", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
-  --row-h: 52px;
-  --rail-w: 320px;
-  --radius: 8px;
+  --glow: #58c7ff;                       /* cool ambient accent (glass) */
+
+  /* Glass surfaces: translucent fills + blur + light-catching border */
+  --glass: rgba(22, 27, 38, 0.55);
+  --glass-strong: rgba(26, 32, 45, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-border-hi: rgba(255, 255, 255, 0.16);
+  --blur: saturate(140%) blur(22px);
+
+  --display: "Sora", system-ui, sans-serif;
+  --body: "Hanken Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --row-h: 56px;
+  --rail-w: 336px;
+  --radius: 14px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -42,11 +50,29 @@ body {
   overflow: hidden;
 }
 
+/* Ambient cinematic backdrop — soft, slowly drifting light pools */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 55% at 12% 8%, rgba(88, 199, 255, 0.16), transparent 60%),
+    radial-gradient(45% 60% at 88% 12%, rgba(160, 92, 240, 0.14), transparent 62%),
+    radial-gradient(50% 60% at 70% 95%, rgba(245, 165, 36, 0.10), transparent 60%),
+    var(--console);
+  animation: drift 34s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2%, -1.5%, 0) scale(1.06); }
+}
+
 .display {
   font-family: var(--display);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .mono { font-family: var(--mono); }
@@ -54,9 +80,9 @@ body {
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 
 :focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--glow);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -72,11 +98,14 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   display: flex;
   align-items: center;
   gap: 20px;
-  height: 56px;
-  padding: 0 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  height: 60px;
+  padding: 0 20px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border);
   flex-shrink: 0;
+  z-index: 20;
 }
 
 .icon-btn {
@@ -110,9 +139,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 .brand-name {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 800;
   font-size: 22px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
 }
 .brand-sub {
   font-family: var(--mono);
@@ -125,16 +154,20 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .search {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
-  max-width: 480px;
-  height: 36px;
-  padding: 0 12px;
-  background: var(--console);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  max-width: 560px;
+  height: 40px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.search:focus-within { border-color: var(--amber); }
+.search:focus-within {
+  border-color: rgba(88, 199, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(88, 199, 255, 0.14);
+}
 .search svg { width: 15px; height: 15px; color: var(--faint); flex-shrink: 0; }
 .search input {
   flex: 1;
@@ -159,16 +192,23 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 .topbar-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
 
-/* Tally light: amber = cued/tuning, red = on air */
+/* Tally light: amber = cued/tuning, red = on air — a broadcast pill */
 .tally {
   display: flex;
   align-items: center;
   gap: 7px;
   font-family: var(--mono);
   font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.14em;
   color: var(--faint);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
 }
+.tally[data-state="live"] { border-color: rgba(255, 77, 90, 0.5); background: var(--live-soft); }
+.tally[data-state="tuning"] { border-color: rgba(245, 165, 36, 0.5); background: var(--amber-soft); }
 .tally-dot {
   width: 9px;
   height: 9px;
@@ -218,29 +258,34 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .btn:disabled { opacity: 0.45; cursor: default; pointer-events: none; }
 .btn-sm { height: 28px; padding: 0 12px; font-size: 12px; }
 
-/* Layout switcher: console (rail + player) vs library (Plex-style grid) */
+/* Layout switcher: home (rails) · console (player) · library (grid) */
 .layout-toggle {
   display: flex;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
 }
 .lt-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 32px;
+  width: 40px;
+  height: 34px;
   color: var(--faint);
+  transition: color 0.15s, background 0.15s;
 }
-.lt-toggle + .lt-toggle { border-left: 1px solid var(--line); }
-.lt-toggle:hover { color: var(--text); background: var(--panel-2); }
-.lt-toggle.is-active { color: var(--amber); background: var(--amber-soft); }
-.lt-toggle svg { width: 16px; height: 16px; }
+.lt-toggle:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.lt-toggle.is-active {
+  color: var(--glow);
+  background: rgba(88, 199, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(88, 199, 255, 0.4), 0 0 14px rgba(88, 199, 255, 0.25);
+}
+.lt-toggle svg { width: 17px; height: 17px; }
 
 /* ── Layout ───────────────────────────────────────────────────────────── */
 
-#layout { display: flex; flex: 1; min-height: 0; }
+#layout { display: flex; flex: 1; min-height: 0; gap: 12px; padding-right: 12px; }
 
 /* ── Channel rail ─────────────────────────────────────────────────────── */
 
@@ -249,8 +294,13 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   flex-direction: column;
   width: var(--rail-w);
   flex-shrink: 0;
-  background: var(--panel);
-  border-right: 1px solid var(--line);
+  margin: 12px 0 12px 12px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
   min-height: 0;
 }
 
@@ -276,15 +326,15 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .chips { display: flex; gap: 6px; }
 .chip {
   flex: 1;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.15s;
 }
-.chip:hover { color: var(--text); border-color: var(--faint); }
+.chip:hover { color: var(--text); border-color: var(--glass-border-hi); background: rgba(255,255,255,0.04); }
 .chip.is-active { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
 
 #groupSelect {
@@ -343,13 +393,18 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   border-left: 2px solid transparent;
   user-select: none;
 }
-.ch-row:hover { background: var(--panel-2); }
+.ch-row:hover { background: rgba(255, 255, 255, 0.05); }
 .ch-row.is-dead .ch-name, .ch-row.is-dead .ch-logo, .ch-row.is-dead .ch-tile { opacity: 0.45; }
 .ch-row.is-current {
   background: var(--amber-soft);
   border-left-color: var(--amber);
 }
-.ch-row.is-keyed { background: var(--panel-2); border-left-color: var(--faint); }
+/* keyboard cursor: cool glow ring like a focused TV tile */
+.ch-row.is-keyed {
+  background: rgba(88, 199, 255, 0.1);
+  border-left-color: var(--glow);
+  box-shadow: inset 0 0 0 1px rgba(88, 199, 255, 0.35);
+}
 
 .ch-num {
   font-family: var(--mono);
@@ -461,6 +516,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  padding: 12px 0;
 }
 
 #playerShell {
@@ -470,7 +526,12 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   max-height: 62vh;
   width: 100%;
   flex-shrink: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
 }
+#playerShell[data-state="playing"] { border-color: rgba(88, 199, 255, 0.35); box-shadow: 0 0 40px rgba(88, 199, 255, 0.16), 0 18px 50px rgba(0, 0, 0, 0.5); }
 #player { width: 100%; height: 100%; display: block; }
 
 .player-veil {
@@ -526,9 +587,13 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   display: flex;
   align-items: stretch;
   gap: 24px;
-  padding: 14px 20px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  padding: 16px 20px;
+  margin-top: 12px;
+  border-radius: var(--radius);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -580,70 +645,148 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 /* ── Guide ────────────────────────────────────────────────────────────── */
 
-#guide { flex: 1; display: flex; flex-direction: column; min-height: 160px; }
+#guide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+  margin-top: 12px;
+  border-radius: var(--radius);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+}
 
 .guide-head {
   display: flex;
   align-items: baseline;
   gap: 14px;
-  padding: 14px 20px 10px;
+  padding: 16px 20px 10px;
 }
 .guide-head h3 { font-size: 15px; letter-spacing: 0.1em; color: var(--muted); }
 #guideStatus { font-size: 12px; color: var(--faint); }
 
-#guideList { padding: 0 20px 24px; }
-
-.epg-row {
-  display: flex;
-  gap: 16px;
-  padding: 10px 12px;
-  border-left: 2px solid var(--line-soft);
-  margin-left: 4px;
+/* Horizontal timeline: the current channel's schedule on a time axis */
+#guideTimeline { padding: 4px 20px 0; }
+.tl-ruler {
+  position: relative;
+  height: 18px;
+  margin-left: 0;
+  border-bottom: 1px solid var(--line-soft);
 }
-.epg-row.is-past { opacity: 0.45; }
-.epg-row.is-live {
-  border-left-color: var(--live);
-  background: linear-gradient(90deg, var(--live-soft), transparent 60%);
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
-
-.epg-time {
+.tl-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-  width: 96px;
+  font-size: 10px;
+  color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
-.epg-row.is-live .epg-time { color: var(--live); }
-
-.epg-body { min-width: 0; flex: 1; }
-.epg-title { font-weight: 500; font-size: 13px; }
-.epg-live-tag {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--live);
-  border: 1px solid var(--live);
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin-left: 8px;
-  vertical-align: 1px;
+.tl-tick::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 15px;
+  width: 1px;
+  height: 6px;
+  background: var(--line);
 }
-.epg-desc {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.tl-scroll { position: relative; height: 62px; margin-top: 8px; }
+.tl-track { position: absolute; inset: 0; }
+.tl-block {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
   overflow: hidden;
-  cursor: pointer;
+  cursor: default;
 }
-.epg-desc.is-open { -webkit-line-clamp: unset; }
+.tl-block.is-live {
+  background: linear-gradient(120deg, var(--amber-soft), rgba(255,255,255,0.04));
+  border-color: rgba(245, 165, 36, 0.5);
+}
+.tl-block.is-past { opacity: 0.4; }
+.tl-block .b-title {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-block .b-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  margin-top: 2px;
+}
+.tl-nowline {
+  position: absolute;
+  top: -8px;
+  bottom: 0;
+  width: 2px;
+  background: var(--live);
+  box-shadow: 0 0 8px var(--live);
+  pointer-events: none;
+}
+.tl-nowline::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+}
 
-.guide-empty { padding: 24px 12px; color: var(--faint); font-size: 13px; }
+/* Split cards: On now (with progress) + Coming up (list) */
+#guideSplit {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  padding: 16px 20px 22px;
+}
+.guide-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+.guide-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.gc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); }
+.gc-now-title { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.15; }
+.gc-now-time { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 6px 0 12px; }
+.gc-now-desc {
+  font-size: 13px; color: var(--muted); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.gc-progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 14px; }
+.gc-progress-bar { height: 100%; background: var(--live); border-radius: 2px; transition: width 1s linear; }
+
+.gc-next-item { display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.gc-next-item:first-child { border-top: none; }
+.gc-next-time { font-family: var(--mono); font-size: 12px; color: var(--amber); flex-shrink: 0; width: 46px; font-variant-numeric: tabular-nums; }
+.gc-next-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.guide-empty { padding: 24px 20px; color: var(--faint); font-size: 13px; }
+
+@media (max-width: 720px) { #guideSplit { grid-template-columns: 1fr; } }
 
 /* ── Library layout (Plex/Jellyfin-style grid) ────────────────────────── */
 
@@ -691,16 +834,18 @@ body[data-layout="library"] #stage { overflow: hidden; }
   position: relative;
   width: 170px;
   height: 210px;
-  background: var(--panel);
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
+  /* Solid translucent fill (no per-card blur — that's GPU-costly at scale;
+     blur is reserved for the large panels). */
+  background: rgba(28, 34, 47, 0.85);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: transform 0.12s, border-color 0.12s;
+  transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s;
 }
-.lib-card:hover { transform: translateY(-2px); border-color: var(--faint); }
+.lib-card:hover { transform: translateY(-2px); border-color: var(--glass-border-hi); }
 .lib-card.is-current { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
 .lib-card.is-dead { opacity: 0.45; }
 
@@ -801,14 +946,18 @@ body[data-layout="home"] #stage { overflow: hidden; }
 .home-hero {
   display: flex;
   align-items: center;
-  gap: 28px;
-  margin: 0 24px 28px;
-  padding: 28px;
-  border-radius: 16px;
+  gap: 32px;
+  margin: 0 24px 32px;
+  padding: 36px;
+  border-radius: 20px;
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(245, 165, 36, 0.16), transparent 55%),
-    linear-gradient(120deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line);
+    radial-gradient(90% 160% at 0% 0%, rgba(88, 199, 255, 0.20), transparent 55%),
+    radial-gradient(90% 160% at 100% 100%, rgba(160, 92, 240, 0.18), transparent 55%),
+    var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border-hi);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 .home-hero[hidden] { display: none; }
 .hero-logo {
@@ -884,8 +1033,10 @@ body[data-layout="home"] .rail-track .lib-card:hover,
   right: 0;
   bottom: 0;
   width: min(480px, 100vw);
-  background: var(--panel);
-  border-left: 1px solid var(--line);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-left: 1px solid var(--glass-border-hi);
   display: flex;
   flex-direction: column;
   animation: drawer-in 0.22s ease-out;

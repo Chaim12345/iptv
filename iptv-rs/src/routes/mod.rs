@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::{
     extract::{Multipart, Path, Query, State},
     routing::{get, post},
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     Json, Router,
 };
 use serde::Deserialize;
@@ -41,7 +41,6 @@ pub struct EpgChannelQuery {
 pub fn build(store: Arc<AppStore>) -> Router {
     Router::new()
         // Index page
-        .route("/", get(index_handler))
         // Playlists — specific before parameterized
         .route("/api/playlists/upload", post(upload_playlist))
         .route("/api/playlists", get(list_playlists))
@@ -69,12 +68,6 @@ pub fn build(store: Arc<AppStore>) -> Router {
 }
 
 // ── Handlers ───────────────────────────────────────────────────────────────
-
-/// Serve the main index page.
-async fn index_handler() -> impl IntoResponse {
-    let html = include_str!("../../../templates/index.html");
-    Html(html)
-}
 
 // ── Playlists ──────────────────────────────────────────────────────────────
 

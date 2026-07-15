@@ -9,6 +9,7 @@ pub struct Channel {
     pub url: String,
     #[serde(default)]
     pub urls: Vec<String>,
+    #[serde(default)]
     pub group: String,
     #[serde(default)]
     pub logo: String,

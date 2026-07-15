@@ -21,3 +21,6 @@ server.log
 # Tooling / editor state
 .omc/
 .DS_Store
+
+# Local design reference (downloaded Stitch pack)
+.stitch_ref/

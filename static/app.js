@@ -45,7 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const nextTitle = $('nextTitle');
   const nextTime = $('nextTime');
   const guideStatus = $('guideStatus');
-  const guideList = $('guideList');
+  const guideTimeline = $('guideTimeline');
+  const guideSplit = $('guideSplit');
+  const guideEmpty = $('guideEmpty');
+  const tlRuler = $('tlRuler');
+  const tlTrack = $('tlTrack');
+  const tlNow = $('tlNow');
+  const guideNow = $('guideNow');
+  const guideNext = $('guideNext');
   const libraryTools = $('libraryTools');
   const libViewport = $('libViewport');
   const libSpacer = $('libSpacer');
@@ -610,11 +617,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return isNaN(d) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
+  // Timeline window: 30 min behind → 4 h ahead of now.
+  const TL_BACK = 30 * 60e3, TL_SPAN = 4.5 * 3600e3;
+  let guideWinStart = 0;
+
+  function showGuideState(state) {
+    guideTimeline.hidden = state !== 'ok';
+    guideSplit.hidden = state !== 'ok';
+    guideEmpty.hidden = state === 'ok';
+  }
+
   async function loadGuide(ch) {
     const seq = ++epgSeq;
     programmes = [];
     guideStatus.textContent = `Loading schedule for ${ch.name}…`;
-    guideList.innerHTML = '';
+    showGuideState('loading');
+    guideEmpty.textContent = '';
     ltNow.hidden = true;
     ltNext.hidden = true;
 
@@ -622,76 +640,147 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await api(`/api/epg/channel/${encodeURIComponent(id)}?name=${encodeURIComponent(ch.name || '')}`);
       if (seq !== epgSeq) return; // user already switched channels
-      programmes = data.programmes || [];
+      programmes = (data.programmes || []).filter(p => !isNaN(Date.parse(p.start)) && !isNaN(Date.parse(p.stop)));
       if (!programmes.length) {
         guideStatus.textContent = ch.name;
-        guideList.innerHTML = '<p class="guide-empty">No programme data for this channel yet. More guides can be loaded from Sources → Library.</p>';
+        showGuideState('empty');
+        guideEmpty.textContent = 'No programme data for this channel yet. Load a matching guide from Sources → Library.';
         return;
       }
       guideStatus.textContent = `${ch.name} — ${programmes.length} programmes`;
+      showGuideState('ok');
       renderGuide();
-      updateNowNext();
     } catch (e) {
       if (seq !== epgSeq) return;
       guideStatus.textContent = ch.name;
-      guideList.innerHTML = '<p class="guide-empty">Could not load the schedule from the server.</p>';
+      showGuideState('empty');
+      guideEmpty.textContent = 'Could not load the schedule from the server.';
     }
   }
 
   function renderGuide() {
-    guideList.innerHTML = '';
     const now = Date.now();
-    const frag = document.createDocumentFragment();
-    let liveRow = null;
+    guideWinStart = now - TL_BACK;
+    const winEnd = guideWinStart + TL_SPAN;
+    const pct = t => ((t - guideWinStart) / TL_SPAN) * 100;
 
-    for (const p of programmes) {
-      const start = Date.parse(p.start);
-      const stop = Date.parse(p.stop);
-      if (isNaN(start) || isNaN(stop)) continue;
-      if (stop < now - 3 * 3600e3) continue;
-
-      const row = document.createElement('div');
-      row.className = 'epg-row';
-      const isLive = start <= now && now < stop;
-      if (isLive) row.classList.add('is-live');
-      if (stop <= now) row.classList.add('is-past');
-
-      const time = document.createElement('span');
-      time.className = 'epg-time';
-      time.textContent = `${fmtTime(p.start)}–${fmtTime(p.stop)}`;
-
-      const body = document.createElement('div');
-      body.className = 'epg-body';
-      const title = document.createElement('div');
-      title.className = 'epg-title';
-      title.textContent = p.title || 'Untitled programme';
-      if (isLive) {
-        const tag = document.createElement('span');
-        tag.className = 'epg-live-tag';
-        tag.textContent = 'ON AIR';
-        title.appendChild(tag);
-        liveRow = row;
-      }
-      body.appendChild(title);
-      if (p.description) {
-        const desc = document.createElement('div');
-        desc.className = 'epg-desc';
-        desc.textContent = p.description;
-        desc.title = 'Click to expand';
-        desc.addEventListener('click', () => desc.classList.toggle('is-open'));
-        body.appendChild(desc);
-      }
-
-      row.append(time, body);
-      frag.appendChild(row);
+    // Ruler: hour ticks across the window
+    tlRuler.innerHTML = '';
+    const firstTick = Math.ceil(guideWinStart / 3600e3) * 3600e3;
+    for (let t = firstTick; t <= winEnd; t += 3600e3) {
+      const tick = document.createElement('span');
+      tick.className = 'tl-tick';
+      tick.style.left = `${pct(t)}%`;
+      tick.textContent = fmtTime(new Date(t).toISOString());
+      tlRuler.appendChild(tick);
     }
 
-    guideList.appendChild(frag);
-    if (liveRow) liveRow.scrollIntoView({ block: 'nearest' });
+    // Blocks: programmes overlapping the window, positioned by time
+    tlTrack.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for (const p of programmes) {
+      const start = Date.parse(p.start), stop = Date.parse(p.stop);
+      if (stop <= guideWinStart || start >= winEnd) continue;
+      const left = Math.max(0, pct(start));
+      const right = Math.min(100, pct(stop));
+      const width = right - left;
+      if (width <= 0.4) continue;
+
+      const block = document.createElement('div');
+      block.className = 'tl-block';
+      block.dataset.start = start;
+      block.dataset.stop = stop;
+      block.style.left = `${left}%`;
+      block.style.width = `${width}%`;
+      const title = document.createElement('div');
+      title.className = 'b-title';
+      title.textContent = p.title || 'Untitled programme';
+      const time = document.createElement('div');
+      time.className = 'b-time';
+      time.textContent = `${fmtTime(p.start)}–${fmtTime(p.stop)}`;
+      block.title = `${p.title}\n${fmtTime(p.start)}–${fmtTime(p.stop)}`;
+      block.append(title, time);
+      frag.appendChild(block);
+    }
+    tlTrack.appendChild(frag);
+
+    renderSplit();
+    positionNow();
+  }
+
+  function renderSplit() {
+    const now = Date.now();
+    const current = programmes.find(p => Date.parse(p.start) <= now && now < Date.parse(p.stop));
+    const upcoming = programmes.filter(p => Date.parse(p.start) > now).slice(0, 5);
+
+    guideNow.innerHTML = '';
+    if (current) {
+      const title = document.createElement('div');
+      title.className = 'gc-now-title';
+      title.textContent = current.title || 'Untitled programme';
+      const time = document.createElement('div');
+      time.className = 'gc-now-time';
+      time.textContent = `${fmtTime(current.start)} – ${fmtTime(current.stop)}`;
+      guideNow.append(title, time);
+      if (current.description) {
+        const desc = document.createElement('div');
+        desc.className = 'gc-now-desc';
+        desc.textContent = current.description;
+        guideNow.appendChild(desc);
+      }
+      const prog = document.createElement('div');
+      prog.className = 'gc-progress';
+      prog.innerHTML = '<div class="gc-progress-bar" id="gcProgBar"></div>';
+      guideNow.appendChild(prog);
+    } else {
+      guideNow.innerHTML = '<div class="gc-now-desc">Nothing scheduled right now.</div>';
+    }
+
+    guideNext.innerHTML = '';
+    if (upcoming.length) {
+      const fr = document.createDocumentFragment();
+      for (const p of upcoming) {
+        const item = document.createElement('div');
+        item.className = 'gc-next-item';
+        const t = document.createElement('span');
+        t.className = 'gc-next-time';
+        t.textContent = fmtTime(p.start);
+        const ti = document.createElement('span');
+        ti.className = 'gc-next-title';
+        ti.textContent = p.title || 'Untitled programme';
+        item.append(t, ti);
+        fr.appendChild(item);
+      }
+      guideNext.appendChild(fr);
+    } else {
+      guideNext.innerHTML = '<div class="gc-now-desc">No upcoming programmes in the guide.</div>';
+    }
+  }
+
+  // Move the "now" line, refresh live/past block state and progress bars.
+  function positionNow() {
+    const now = Date.now();
+    if (programmes.length && !guideTimeline.hidden) {
+      const left = ((now - guideWinStart) / TL_SPAN) * 100;
+      tlNow.style.left = `${Math.max(0, Math.min(100, left))}%`;
+      tlNow.style.display = left < 0 || left > 100 ? 'none' : 'block';
+      tlTrack.querySelectorAll('.tl-block').forEach(b => {
+        const s = +b.dataset.start, e = +b.dataset.stop;
+        b.classList.toggle('is-live', s <= now && now < e);
+        b.classList.toggle('is-past', e <= now);
+      });
+      const cur = programmes.find(p => Date.parse(p.start) <= now && now < Date.parse(p.stop));
+      const bar = document.getElementById('gcProgBar');
+      if (cur && bar) {
+        const s = Date.parse(cur.start), e = Date.parse(cur.stop);
+        bar.style.width = `${Math.min(100, Math.max(0, ((now - s) / (e - s)) * 100))}%`;
+      }
+    }
+    updateNowNext();
   }
 
   function updateNowNext() {
-    if (!programmes.length) return;
+    if (!programmes.length) { ltNow.hidden = true; ltNext.hidden = true; return; }
     const now = Date.now();
     let current = null, next = null;
     for (const p of programmes) {
@@ -719,7 +808,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ltNext.hidden = true;
     }
   }
-  setInterval(updateNowNext, 30_000);
+  // Re-render the guide each minute so the window slides and "now" advances.
+  setInterval(() => { if (programmes.length && !guideTimeline.hidden) renderGuide(); else updateNowNext(); }, 60_000);
 
   // ── Filters wiring ───────────────────────────────────────────────────
   let searchDebounce = null;

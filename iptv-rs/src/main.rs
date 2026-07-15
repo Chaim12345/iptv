@@ -52,10 +52,15 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
+    // Serve the built Vite frontend (index.html + hashed /assets/* + wasm).
+    // Path is crate-relative so it works regardless of the launch directory.
+    // ServeDir serves index.html for "/" by default; API routes match first.
+    let static_dir = ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static"));
+
     // Build router
     let app = Router::new()
         .merge(routes::build(store.clone()))
-        .nest_service("/static", ServeDir::new("../static"))
+        .fallback_service(static_dir)
         // axum's default body limit is 2 MB — far too small for EPG uploads
         .layer(axum::extract::DefaultBodyLimit::max(config.max_upload_bytes))
         .layer(
