@@ -44,4 +44,30 @@ indexer; Jellyfin owns library, metadata, and native clients. See `research/EVAL
 - The *arr download-to-disk automation (Sonarr/Radarr) — we stream live, not manage a download library.
 
 ## Traceability
-_(filled by roadmap — REQ-ID → phase)_
+
+Every v2.0 requirement maps to exactly one phase. Cross-cutting guardrails (source-neutral,
+AGPL isolation, no-regression) are formally gated by the OPS requirements below but bind on
+every phase.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| JF-01 | Phase 1 — Jellyfin IPTV Feed | Pending |
+| JF-02 | Phase 1 — Jellyfin IPTV Feed | Pending |
+| OPS-03 | Phase 1 — Jellyfin IPTV Feed | Pending |
+| IDX-01 | Phase 2 — Indexer Integration | Pending |
+| IDX-02 | Phase 2 — Indexer Integration | Pending |
+| IDX-03 | Phase 2 — Indexer Integration | Pending |
+| IDX-04 | Phase 2 — Indexer Integration | Pending |
+| IDX-05 | Phase 2 — Indexer Integration | Pending |
+| OPS-01 | Phase 2 — Indexer Integration | Pending |
+| STR-01 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| STR-02 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| STR-03 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| STR-04 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| STR-05 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| OPS-02 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| JF-03 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
+| JF-04 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
+| JF-05 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
+
+**Coverage:** 18/18 v2.0 requirements mapped. No orphans, no duplicates.
