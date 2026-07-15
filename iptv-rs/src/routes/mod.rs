@@ -48,6 +48,9 @@ pub fn build(store: Arc<AppStore>) -> Router {
         // EPG — per-channel lookup only; the full guide is too large to serve
         .route("/api/epg/upload", post(upload_epg))
         .route("/api/epg/channel/:id", get(get_channel_epg))
+        // Jellyfin Live TV feed — M3U tuner + XMLTV guide over the verified set
+        .route("/api/jellyfin/playlist.m3u", get(jellyfin_m3u))
+        .route("/api/jellyfin/epg.xml", get(jellyfin_xmltv))
         // Channels & search
         .route("/api/channels/search", get(search_channels))
         .route("/api/channels", get(list_channels))
@@ -236,6 +239,40 @@ async fn get_channel_epg(
         "total": programmes.len(),
         "programmes": programmes
     })))
+}
+
+// ── Jellyfin Live TV feed ────────────────────────────────────────────────
+
+/// Reconstruct the SIGNAL origin (scheme://host) from request headers so the
+/// M3U can hand Jellyfin absolute, proxied stream URLs.
+fn origin_from_headers(headers: &axum::http::HeaderMap) -> String {
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost:5000");
+    let scheme = headers
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("http");
+    format!("{}://{}", scheme, host)
+}
+
+/// M3U tuner feed for Jellyfin — the verified working set, proxied URLs.
+async fn jellyfin_m3u(
+    headers: axum::http::HeaderMap,
+    State(store): State<Arc<AppStore>>,
+) -> impl IntoResponse {
+    let body = store.render_m3u(&origin_from_headers(&headers));
+    (
+        [(axum::http::header::CONTENT_TYPE, "audio/x-mpegurl")],
+        body,
+    )
+}
+
+/// XMLTV guide feed for Jellyfin — the merged EPG.
+async fn jellyfin_xmltv(State(store): State<Arc<AppStore>>) -> impl IntoResponse {
+    let body = store.render_xmltv();
+    ([(axum::http::header::CONTENT_TYPE, "application/xml")], body)
 }
 
 // ── Channels ───────────────────────────────────────────────────────────────

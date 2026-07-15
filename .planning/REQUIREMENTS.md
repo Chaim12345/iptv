@@ -51,9 +51,9 @@ every phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| JF-01 | Phase 1 — Jellyfin IPTV Feed | Pending |
-| JF-02 | Phase 1 — Jellyfin IPTV Feed | Pending |
-| OPS-03 | Phase 1 — Jellyfin IPTV Feed | Pending |
+| JF-01 | Phase 1 — Jellyfin IPTV Feed | Complete |
+| JF-02 | Phase 1 — Jellyfin IPTV Feed | Complete |
+| OPS-03 | Phase 1 — Jellyfin IPTV Feed | Complete |
 | IDX-01 | Phase 2 — Indexer Integration | Pending |
 | IDX-02 | Phase 2 — Indexer Integration | Pending |
 | IDX-03 | Phase 2 — Indexer Integration | Pending |

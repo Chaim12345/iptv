@@ -63,6 +63,39 @@ fn safe_filename(name: &str) -> String {
         .collect()
 }
 
+// ── Jellyfin M3U/XMLTV rendering helpers ──
+
+/// Sanitize a value for an M3U double-quoted attribute (drop quotes/newlines).
+fn m3u_attr(s: &str) -> String {
+    s.chars()
+        .filter(|&c| c != '"' && c != '\n' && c != '\r')
+        .collect()
+}
+
+/// Sanitize the trailing display-name field of an #EXTINF line (drop newlines).
+fn m3u_field(s: &str) -> String {
+    s.chars().filter(|&c| c != '\n' && c != '\r').collect()
+}
+
+/// XML-escape element text (`&`, `<`, `>`).
+fn xml_text(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+/// XML-escape an attribute value (text escapes plus `"`).
+fn xml_attr(s: &str) -> String {
+    xml_text(s).replace('"', "&quot;")
+}
+
+/// Convert an RFC-3339 timestamp to XMLTV form (`YYYYMMDDHHMMSS +0000`).
+/// Falls back to the raw string if it doesn't parse.
+fn to_xmltv_time(s: &str) -> String {
+    match chrono::DateTime::parse_from_rfc3339(s) {
+        Ok(dt) => dt.format("%Y%m%d%H%M%S %z").to_string(),
+        Err(_) => s.to_string(),
+    }
+}
+
 /// The EPG guide plus an index from channel_id → programme positions, so
 /// per-channel lookups are O(matching programmes) instead of a full scan of
 /// every programme in the merged guide.
@@ -404,6 +437,75 @@ impl AppStore {
 
     pub fn get_working(&self) -> Option<Playlist> {
         self.working.read().unwrap().clone()
+    }
+
+    /// Render the verified working set as an M3U playlist for a Jellyfin M3U
+    /// tuner. Stream URLs are absolute and routed through `/api/proxy` so
+    /// Jellyfin plays via the same egress SIGNAL verified the stream from.
+    /// `base` is the SIGNAL origin (e.g. "http://192.168.1.10:5000"), no
+    /// trailing slash. Built under the read lock — no clone of the channel set.
+    pub fn render_m3u(&self, base: &str) -> String {
+        let guard = self.working.read().unwrap();
+        let mut out = String::from("#EXTM3U\n");
+        if let Some(pl) = guard.as_ref() {
+            for ch in &pl.channels {
+                if ch.url.is_empty() {
+                    continue;
+                }
+                let proxied = format!("{}/api/proxy?url={}", base, urlencoding::encode(&ch.url));
+                out.push_str(&format!(
+                    "#EXTINF:-1 tvg-id=\"{}\" tvg-name=\"{}\" tvg-logo=\"{}\" group-title=\"{}\",{}\n{}\n",
+                    m3u_attr(ch.tvg_id.as_deref().unwrap_or("")),
+                    m3u_attr(&ch.name),
+                    m3u_attr(ch.logo.as_deref().unwrap_or("")),
+                    m3u_attr(ch.group.as_deref().unwrap_or("")),
+                    m3u_field(&ch.name),
+                    proxied,
+                ));
+            }
+        }
+        out
+    }
+
+    /// Render the merged EPG as an XMLTV document for Jellyfin's guide provider.
+    /// `<channel id>` values match the M3U `tvg-id`s so Jellyfin aligns guide
+    /// data to tuner channels. Built under the read lock — no clone of the guide.
+    pub fn render_xmltv(&self) -> String {
+        let guard = self.epg.read().unwrap();
+        let mut out = String::from(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<tv generator-info-name=\"SIGNAL\">\n",
+        );
+        if let Some(state) = guard.as_ref() {
+            for c in &state.data.channels {
+                out.push_str(&format!(
+                    "  <channel id=\"{}\">\n    <display-name>{}</display-name>\n",
+                    xml_attr(&c.id),
+                    xml_text(&c.name),
+                ));
+                if !c.icon.is_empty() {
+                    out.push_str(&format!("    <icon src=\"{}\" />\n", xml_attr(&c.icon)));
+                }
+                out.push_str("  </channel>\n");
+            }
+            for p in &state.data.programmes {
+                out.push_str(&format!(
+                    "  <programme channel=\"{}\" start=\"{}\" stop=\"{}\">\n    <title>{}</title>\n",
+                    xml_attr(&p.channel_id),
+                    to_xmltv_time(&p.start),
+                    to_xmltv_time(&p.stop),
+                    xml_text(&p.title),
+                ));
+                if !p.description.is_empty() {
+                    out.push_str(&format!("    <desc>{}</desc>\n", xml_text(&p.description)));
+                }
+                if let Some(cat) = p.category.as_deref().filter(|c| !c.is_empty()) {
+                    out.push_str(&format!("    <category>{}</category>\n", xml_text(cat)));
+                }
+                out.push_str("  </programme>\n");
+            }
+        }
+        out.push_str("</tv>\n");
+        out
     }
 
     /// Replace the in-memory working set (no disk write).
