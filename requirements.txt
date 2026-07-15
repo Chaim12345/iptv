@@ -1,5 +1,0 @@
-flask
-werkzeug
-requests
-m3u8
-aiohttp
