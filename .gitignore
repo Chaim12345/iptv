@@ -24,3 +24,11 @@ server.log
 
 # Local design reference (downloaded Stitch pack)
 .stitch_ref/
+
+# GSD generated graph blobs (regenerable via /gsd-graphify build) — keep GRAPH_REPORT.md
+.planning/graphs/graph.json
+.planning/graphs/graph.html
+.planning/graphs/.last-build-snapshot.json
+
+# graphify working output dir (regenerable)
+graphify-out/
