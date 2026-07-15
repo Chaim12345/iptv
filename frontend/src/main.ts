@@ -7,6 +7,7 @@ import './style.css';
 import Hls from 'hls.js';
 import init, { extract_groups } from 'iptv-wasm';
 import { api, type Channel, type Programme, type PipelineStatus } from './api';
+import './vod'; // "Movies" — torrent VOD via the self-hosted webtor embed player
 
 await init(); // ready the WASM module before we touch the DOM
 

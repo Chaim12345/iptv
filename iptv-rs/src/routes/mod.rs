@@ -400,6 +400,91 @@ fn parse_byte_range(h: &axum::http::HeaderMap) -> Option<(u64, Option<u64>)> {
     Some((start, end))
 }
 
+/// Stream an HTTP-hosted torrent file directly over HTTP byte-range, bypassing
+/// the BitTorrent protocol entirely. The Internet Archive default (and any
+/// directory-style web seed) serves each file at `<torrent-dir>/<name>`.
+/// librqbit does NOT fetch BEP19 web seeds, so a peerless torrent yields 0
+/// bytes through the swarm engine — this path is what actually delivers data
+/// for web-seeded sources, and it needs only outbound HTTPS. Returns Ok(None)
+/// when the URL is not a usable web seed, so the caller falls back to the swarm.
+async fn stream_http_webseed(
+    store: &Arc<AppStore>,
+    torrent_url: &str,
+    file: usize,
+    headers: &axum::http::HeaderMap,
+) -> Result<Option<axum::response::Response>, AppError> {
+    let engine = require_engine(store)?;
+    let resolved = match engine.resolve(torrent_url).await {
+        Ok(r) => r,
+        Err(_) => return Ok(None),
+    };
+    let entry = resolved
+        .files
+        .get(file)
+        .ok_or_else(|| AppError::NotFound(format!("file index {} out of range", file)))?;
+
+    // Web-seed file URL = the torrent's directory + the file name, with each
+    // path segment percent-encoded ('/' preserved).
+    let base = match torrent_url.rsplit_once('/') {
+        Some((b, _)) if !b.is_empty() => b,
+        _ => return Ok(None),
+    };
+    let encoded = entry
+        .name
+        .split('/')
+        .map(|s| urlencoding::encode(s).into_owned())
+        .collect::<Vec<_>>()
+        .join("/");
+    let file_url = format!("{}/{}", base, encoded);
+
+    // Dedicated client: connect timeout only (no total timeout — this is a long
+    // streaming body). reqwest follows the archive.org 302 to the data node.
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .danger_accept_invalid_certs(true)
+        .user_agent("iptv-rs/1.0")
+        .build()
+        .map_err(|e| AppError::Internal(format!("http client: {}", e)))?;
+
+    let mut req = client.get(&file_url);
+    if let Some(r) = headers.get(axum::http::header::RANGE) {
+        req = req.header(axum::http::header::RANGE, r);
+    }
+    let upstream = match req.send().await {
+        Ok(r) => r,
+        Err(_) => return Ok(None), // web seed unreachable → fall back to swarm
+    };
+    if !upstream.status().is_success() {
+        return Ok(None); // not a valid web seed (e.g. 404) → fall back to swarm
+    }
+
+    // Relay the upstream status (200 or 206) and range headers verbatim so
+    // Jellyfin/ffmpeg gets a well-formed byte-range response and can seek.
+    let status = upstream.status();
+    let content_type = mime_guess::from_path(&entry.name)
+        .first_or_octet_stream()
+        .to_string();
+    let content_length = upstream.headers().get(axum::http::header::CONTENT_LENGTH).cloned();
+    let content_range = upstream.headers().get(axum::http::header::CONTENT_RANGE).cloned();
+
+    let mut builder = axum::response::Response::builder()
+        .status(status)
+        .header(axum::http::header::CONTENT_TYPE, content_type)
+        .header(axum::http::header::ACCEPT_RANGES, "bytes");
+    builder = match content_length {
+        Some(cl) => builder.header(axum::http::header::CONTENT_LENGTH, cl),
+        None => builder.header(axum::http::header::CONTENT_LENGTH, entry.size.to_string()),
+    };
+    if let Some(cr) = content_range {
+        builder = builder.header(axum::http::header::CONTENT_RANGE, cr);
+    }
+    let body = axum::body::Body::from_stream(upstream.bytes_stream());
+    let resp = builder
+        .body(body)
+        .map_err(|e| AppError::Internal(format!("build response: {}", e)))?;
+    Ok(Some(resp))
+}
+
 /// Stream one file of a torrent over HTTP byte-range (no persistent download).
 /// This is the URL Phase 4's STRM files point Jellyfin at.
 async fn vod_stream(
@@ -411,6 +496,16 @@ async fn vod_stream(
 
     let magnet = q.magnet.ok_or_else(|| AppError::BadRequest("'magnet' is required".into()))?;
     let file = q.file.unwrap_or(0);
+
+    // HTTP-hosted sources (Internet Archive default, any directory-style web
+    // seed) stream directly over HTTP — librqbit can't fetch web seeds, so a
+    // peerless torrent would return 0 bytes through the swarm engine below.
+    if magnet.starts_with("http://") || magnet.starts_with("https://") {
+        if let Some(resp) = stream_http_webseed(&store, &magnet, file, &headers).await? {
+            return Ok(resp);
+        }
+    }
+
     let engine = require_engine(&store)?;
 
     let resolved = engine

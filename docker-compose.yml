@@ -16,9 +16,8 @@ services:
       - IPTV_PUBLIC_URL=http://iptv:5000
     restart: unless-stopped
 
-  # Jellyfin media server for end-to-end testing (Phase 4). Consumes SIGNAL's
-  # Live TV (M3U tuner + XMLTV) and the STRM library. Reads SIGNAL's data volume
-  # read-only at /signal so /signal/library is scannable as a Movies/TV library.
+  # Jellyfin media server. Reads SIGNAL's data volume read-only at /signal
+  # so /signal/library is scannable as a Movies/TV library.
   # Enable with:  docker compose --profile jellyfin up
   jellyfin:
     image: jellyfin/jellyfin:latest
@@ -33,9 +32,9 @@ services:
       - iptv
     restart: unless-stopped
 
-  # Optional Torznab indexer sidecar (Phase 2, IDX-02). Runs as a SEPARATE
-  # service reached over HTTP — never linked into the Rust binary (indexarr-rs
-  # is AGPL-3.0). Source legality is the operator's responsibility: configure
+  # Torznab indexer sidecar (Phase 2, IDX-02). Runs as a SEPARATE service
+  # reached over HTTP — never linked into the Rust binary (indexarr-rs is
+  # AGPL-3.0). Source legality is the operator's responsibility: configure
   # only legal indexers. Add it in SIGNAL via POST /api/indexers with
   # { "name": "indexarr", "kind": "torznab", "base_url": "http://indexarr:8080" }.
   # Enable with:  docker compose --profile indexer up
@@ -46,10 +45,59 @@ services:
       - "8191:8080"
     volumes:
       - indexarr-data:/data
+    environment:
+      - INDEXARR_DB_URL=postgres://indexarr:indexarr@indexarr-db:5432/indexarr
+      - INDEXARR_DATA_DIR=/data
+    depends_on:
+      indexarr-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  indexarr-db:
+    image: postgres:16-alpine
+    profiles: ["indexer"]
+    environment:
+      POSTGRES_DB: indexarr
+      POSTGRES_USER: indexarr
+      POSTGRES_PASSWORD: indexarr
+    volumes:
+      - indexarr-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indexarr"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Webtor — torrent streaming server. Streams content directly from torrents
+  # without downloading the whole file. SIGNAL creates STRM files pointing
+  # to Webtor's streaming endpoints, which Jellyfin then plays.
+  # Enable with:  docker compose --profile streaming up
+  webtor:
+    image: ghcr.io/webtor-io/self-hosted:latest
+    # Built locally from ./iptv-rs/self-hosted (docker build .) and tagged to
+    # this name. ghcr.io is blocked behind the corporate VPN, so never pull —
+    # use the local image. Rebuild there and re-tag to update.
+    pull_policy: never
+    profiles: ["streaming"]
+    ports:
+      # Host 8080 is taken (Windows-side under mirrored networking), so publish
+      # on 8088. Container stays 8080.
+      - "8088:8080"
+    volumes:
+      - webtor-data:/data
+      - webtor-pgdata:/pgdata
+    environment:
+      # Full URL WITH scheme (webtor builds its links from this). Must be a URL
+      # the browser can reach: localhost for same-machine, else the host LAN IP.
+      - DOMAIN=${WEBTOR_DOMAIN:-http://localhost:8088}
     restart: unless-stopped
 
 volumes:
   iptv-data:
   indexarr-data:
+  indexarr-db-data:
   jellyfin-config:
   jellyfin-cache:
+  webtor-data:
+  webtor-pgdata:

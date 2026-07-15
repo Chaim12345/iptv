@@ -14,25 +14,36 @@ iptv/
 │   │   ├── routes/mod.rs       # All /api/* handlers + /api/proxy relay
 │   │   ├── store.rs            # AppStore, EpgState index, working set, persistence
 │   │   ├── services/
-│   │   │   ├── mod.rs
-│   │   │   ├── pipeline.rs      # 4-stage curation: fetch→dedupe→probe→EPG
-│   │   │   └── curated.rs       # Hardcoded curated M3U/EPG source registry
+│   │   │   ├── mod.rs          # pub mod curated, indexer, library, pipeline, torrent
+│   │   │   ├── pipeline.rs     # 4-stage curation: fetch→dedupe→probe→EPG
+│   │   │   ├── curated.rs      # Hardcoded curated M3U/EPG source registry
+│   │   │   ├── torrent/        # librqbit live-torrent streaming engine
+│   │   │   │   ├── mod.rs      # Re-exports TorrentEngine
+│   │   │   │   └── engine.rs   # TorrentEngine: add torrent, resolve metadata, stream
+│   │   │   ├── indexer/        # Torrent indexers (Torznab, Internet Archive)
+│   │   │   │   ├── mod.rs      # Indexer trait + dispatcher
+│   │   │   │   ├── types.rs    # Shared indexer types (results, config)
+│   │   │   │   ├── torznab.rs  # Torznab-capable indexer client
+│   │   │   │   └── internet_archive.rs  # Internet Archive torrent search
+│   │   │   └── library/        # Jellyfin STRM library builder
+│   │   │       └── mod.rs      # Library generation and management
 │   │   ├── parsers/
 │   │   │   ├── mod.rs
-│   │   │   ├── m3u.rs           # M3uParser (#EXTINF)
-│   │   │   └── xmltv.rs         # XmltvParser (+ parse_window)
+│   │   │   ├── m3u.rs          # M3uParser (#EXTINF)
+│   │   │   └── xmltv.rs        # XmltvParser (+ parse_window)
 │   │   └── models/
 │   │       ├── mod.rs
-│   │       ├── channel.rs       # Channel
-│   │       ├── playlist.rs      # Playlist
-│   │       └── programme.rs     # Programme, EpgData, EpgChannel
+│   │       ├── channel.rs      # Channel
+│   │       ├── playlist.rs     # Playlist
+│   │       └── programme.rs    # Programme, EpgData, EpgChannel
 │   ├── static/                 # Vite build output (SERVED, do not hand-edit)
 │   │   ├── index.html
 │   │   └── assets/             # hashed JS/CSS/WASM
 │   ├── data/                   # Runtime JSON state (gitignored data)
 │   │   ├── uploads/            # per-playlist *.json (+ .bak)
 │   │   ├── epg/epg_data.json   # merged EPG guide
-│   │   └── working_channels.json
+│   │   ├── working_channels.json
+│   │   └── torrent-cache/      # librqbit downloads (auto-created)
 │   ├── Cargo.toml
 │   └── target/                 # Rust build artifacts
 ├── frontend/                   # Vite + TypeScript SPA (source of truth for UI)
@@ -63,37 +74,34 @@ iptv/
 
 **`iptv-rs/`:**
 - Purpose: the backend and the thing you actually deploy (also serves the SPA)
-- Contains: axum server, curation pipeline, parsers, in-memory store
-- Key files: `src/main.rs`, `src/routes/mod.rs`, `src/store.rs`, `src/services/pipeline.rs`
+- Rust axum HTTP server; pipelines, parsers, EPG merge, and persistence
 
 **`frontend/`:**
 - Purpose: source of truth for all UI; built by Vite into `iptv-rs/static/`
-- Contains: TS SPA (`main.ts`/`api.ts`/`store.ts`), styles, Vite config
-- Key files: `src/main.ts`, `vite.config.ts`
+- Single-page app; no framework build system beyond Vite + TS
 
 **`iptv-wasm/`:**
 - Purpose: Rust helper compiled to WASM, imported by the frontend as `iptv-wasm` (a `file:../iptv-wasm/pkg` dependency)
-- Contains: channel grouping/filter/parse/export functions
-- Key files: `src/lib.rs`, `pkg/`
 
 **`iptv-rs/static/` and `iptv-rs/data/`:**
 - `static/` is generated (Vite build) and committed for serving — never edit by hand.
-- `data/` holds runtime JSON state produced by the pipeline/uploads.
+- `data/` holds runtime state (playlists, EPG, torrent-cache, working set). Gitignored.
 
 ## Key File Locations
 
 **Entry Points:**
 - `iptv-rs/src/main.rs`: backend process entry
-- `frontend/src/main.ts`: SPA entry (bundled into `static/`)
 
 **Configuration:**
-- `iptv-rs/src/config.rs`: env vars (`IPTV_DATA_DIR`, `IPTV_PORT` default 5000, `IPTV_CHECK_CONCURRENCY` 64, `IPTV_EPG_WINDOW_HOURS` 48, `IPTV_REFRESH_HOURS` 6, `IPTV_MAX_UPLOAD_BYTES` 100MB)
-- `frontend/vite.config.ts`, `frontend/tsconfig.json`, `iptv-rs/Cargo.toml`, `iptv-wasm/Cargo.toml`
+- `iptv-rs/src/config.rs`: env vars (`IPTV_DATA_DIR`, `IPTV_PORT` default 5000, `IPTV_CHECK_CONCURRENCY` 64, `IPTV_EPG_WINDOW_HOURS` 48, `IPTV_REFRESH_HOURS` 6, `IPTV_MAX_UPLOAD_BYTES` 100MB). Also derives `torrent_cache` (default `data/torrent-cache`), `library_dir`, `library_file`, `indexers_file`, and `public_url` from `IPTV_PUBLIC_URL`.
 
 **Core Logic:**
 - API surface: `iptv-rs/src/routes/mod.rs`
-- State + persistence: `iptv-rs/src/store.rs`
-- Curation: `iptv-rs/src/services/pipeline.rs`, `iptv-rs/src/services/curated.rs`
+- Curation pipeline: `iptv-rs/src/services/pipeline.rs`
+- Curated sources: `iptv-rs/src/services/curated.rs`
+- Torrent engine: `iptv-rs/src/services/torrent/engine.rs` (librqbit-based live streaming)
+- Torrent indexers: `iptv-rs/src/services/indexer/` (Torznab, Internet Archive)
+- STRM library: `iptv-rs/src/services/library/mod.rs`
 
 **Testing:**
 - Loose HTML/JS test harnesses at repo root: `test-runner.html`, `m3u-parser-tests.js`, `epg-parser-tests.js` (legacy, not wired into the Rust/TS toolchain). Rust `#[cfg(test)]` modules live inside parser files.
@@ -101,16 +109,14 @@ iptv/
 ## Build → Serve Wiring
 
 1. Build WASM: `wasm-pack build iptv-wasm` → outputs `iptv-wasm/pkg/`.
-2. Frontend depends on it via `"iptv-wasm": "file:../iptv-wasm/pkg"` (`frontend/package.json`).
-3. `npm run build` in `frontend/` runs `tsc && vite build`; Vite (`vite-plugin-wasm` + `vite-plugin-top-level-await`) emits to `outDir: ../iptv-rs/static` with `emptyOutDir: true`.
-4. `iptv-rs` serves that directory via `ServeDir` as the router fallback (`main.rs:58`), so `/` → `index.html`, hashed `/assets/*`, and WASM; `/api/*` routes match first.
-5. Dev mode: `npm run dev` serves the SPA on `:3000` and proxies `/api` → `http://localhost:5000` (the running `iptv-rs`).
+2. Build frontend: `npm run build` in `frontend/` → outputs `iptv-rs/static/`.
+3. Build backend: `cargo build` in `iptv-rs/` → binary reads `static/` at runtime.
+4. Serve: `cargo run` in `iptv-rs/` starts axum on `:5000`.
 
 ## Naming Conventions
 
 **Files:**
 - Rust: snake_case modules (`pipeline.rs`, `xmltv.rs`)
-- TS: lowercase single-word (`main.ts`, `api.ts`, `store.ts`)
 
 **Directories:**
 - Crates hyphenated (`iptv-rs`, `iptv-wasm`); source subdirs by role (`routes`, `services`, `parsers`, `models`)
@@ -135,10 +141,17 @@ iptv/
 **Config knob:**
 - Add a field to `AppConfig` and read it in `AppConfig::from_env` (`iptv-rs/src/config.rs`).
 
+**New torrent streaming logic:**
+- Extend `iptv-rs/src/services/torrent/engine.rs` for live-torrent streaming via librqbit. `TorrentEngine` manages session lifecycle, metadata resolution, and byte-range streaming. The engine is spawned as a background task in `main.rs` (non-fatal on failure). Routes that proxy torrent content go through `routes/mod.rs`.
+
+**New torrent indexer:**
+- Add a new module under `iptv-rs/src/services/indexer/` implementing the indexer trait from `indexer/mod.rs`. Register it in the dispatcher.
+
 ## Special Directories
 
 **`iptv-rs/static/`:** Generated by Vite build. Committed. Do NOT hand-edit.
-**`iptv-rs/data/`:** Runtime state (playlists, EPG, working set + `.bak`). Generated by the app.
+**`iptv-rs/data/`:** Runtime state (playlists, EPG, torrent-cache, working set). Generated by the app.
+**`iptv-rs/data/torrent-cache/`:** librqbit download target. Auto-created. Do NOT hand-edit.
 **`iptv-wasm/pkg/`:** Generated by wasm-pack; consumed as a local file dependency.
 **`frontend/dist/`:** Stray/default Vite dir — the real build target is `iptv-rs/static`.
 **`.stitch_ref/`:** UI mockups for design reference only, not shipped.

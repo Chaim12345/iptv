@@ -59,6 +59,10 @@
 - chrono 0.4 (feature `serde`) — EPG programme time windows
 - Custom M3U parser (`iptv-rs/src/parsers/m3u.rs`) — no external M3U crate
 
+**BitTorrent / torrent streaming:**
+- librqbit 8 — BitTorrent metadata resolution, torrent downloading, and streaming (`iptv-rs/src/services/torrent/`). Brings in DHT discovery (`librqbit-dht`), tracker comms (`librqbit-tracker-comms`), peer protocol (`librqbit-peer-protocol`), bencode parsing (`librqbit-bencode`), and UPnP support (`librqbit-upnp`). Transitively pulls in dashmap (concurrent hashmap) and governor (rate limiting).
+- tokio-util 0.7 (feature `io`) — IO utilities: stream combinators, codecs, `Either`/`Select` for async IO (`iptv-rs/src/services/torrent/`)
+
 **WASM crate (`iptv-wasm/Cargo.toml`):**
 - wasm-bindgen 0.2, serde-wasm-bindgen 0.6, js-sys 0.3, web-sys 0.3 (feature `console`)
 - Release profile tuned for size: `opt-level = "s"`, `lto = true`
@@ -71,7 +75,7 @@
 ## Configuration
 
 **Environment (all read in `iptv-rs/src/config.rs` via `AppConfig::from_env`):**
-- `IPTV_DATA_DIR` — base data dir (default `data`); derives `uploads/`, `epg/`, `working_channels.json`
+- `IPTV_DATA_DIR` — base data dir (default `data`); derives `uploads/`, `epg/`, `working-channels.json`
 - `IPTV_PORT` — listen port (default `5000`)
 - `IPTV_CHECK_CONCURRENCY` — concurrent stream probes (default `64`)
 - `IPTV_EPG_WINDOW_HOURS` — EPG retention window (default `48`)

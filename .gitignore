@@ -32,3 +32,15 @@ server.log
 
 # graphify working output dir (regenerable)
 graphify-out/
+
+# WSL-local cargo target redirect (do not commit — Linux path breaks Windows)
+iptv-rs/.cargo/
+
+# External reference clones (their own git repos; vendored dist is committed
+# separately at frontend/public/webtor-embed.js)
+iptv-rs/embed-sdk-js/
+iptv-rs/self-hosted/
+
+# Stray build error dumps
+iptv-rs/build.err
+*.err

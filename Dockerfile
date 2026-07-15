@@ -2,13 +2,13 @@
 # Stage 1: Build WASM, frontend, and Rust binary
 FROM rust:1-bookworm AS builder
 
-# Install Node.js 20
+# Install Node.js 20 + build deps for reqwest (native-tls) and librqbit
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y nodejs pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install wasm-pack
-RUN cargo install wasm-pack
+RUN cargo install wasm-pack --version 0.13.1 --locked
 
 # Set working directory
 WORKDIR /app

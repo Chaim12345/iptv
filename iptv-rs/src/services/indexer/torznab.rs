@@ -19,11 +19,15 @@ pub async fn search(
     if cfg.base_url.is_empty() {
         return Ok(Vec::new());
     }
+    // `base_url` is the FULL Torznab endpoint (varies by server: indexarr-rs
+    // uses `/api/torznab`, Jackett `/api/v2.0/.../torznab/api`, Prowlarr
+    // `/<id>/api`). We append the query directly rather than assuming a `/api`
+    // suffix, so the operator provides whatever path their server exposes.
     let base = cfg.base_url.trim_end_matches('/');
     // t=search is the universal Torznab function; category is left to the
     // endpoint's own mapping (we pass the free-text query).
     let mut url = format!(
-        "{}/api?t=search&q={}",
+        "{}?t=search&q={}",
         base,
         urlencoding::encode(&query.text)
     );
@@ -34,6 +38,9 @@ pub async fn search(
         "tv" => url.push_str("&cat=5000"),
         _ => {}
     }
+    // Request the Torznab max page size so we surface the indexer's full
+    // catalog, not just its default page (indexarr defaults to 50, max 100).
+    url.push_str("&limit=100");
     if !cfg.api_key.is_empty() {
         url.push_str(&format!("&apikey={}", urlencoding::encode(&cfg.api_key)));
     }

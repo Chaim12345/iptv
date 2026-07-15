@@ -547,12 +547,34 @@ impl AppStore {
     /// `<channel id>` values match the M3U `tvg-id`s so Jellyfin aligns guide
     /// data to tuner channels. Built under the read lock — no clone of the guide.
     pub fn render_xmltv(&self) -> String {
+        // Only emit guide data for channels that are actually in the M3U tuner
+        // (the verified working set). Rendering the full merged EPG (every
+        // source SIGNAL ever loaded — ~25k channels / 1.6M programmes) produces
+        // a ~500MB document that Jellyfin cannot ingest. Scope to the working
+        // set's tvg-ids so the guide stays small and aligned to tunable channels.
+        let wanted: std::collections::HashSet<String> = {
+            let guard = self.working.read().unwrap();
+            match guard.as_ref() {
+                Some(pl) => pl
+                    .channels
+                    .iter()
+                    .filter_map(|c| c.tvg_id.as_deref())
+                    .filter(|id| !id.is_empty())
+                    .map(|id| id.to_string())
+                    .collect(),
+                None => std::collections::HashSet::new(),
+            }
+        };
+
         let guard = self.epg.read().unwrap();
         let mut out = String::from(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<tv generator-info-name=\"SIGNAL\">\n",
         );
         if let Some(state) = guard.as_ref() {
             for c in &state.data.channels {
+                if !wanted.contains(&c.id) {
+                    continue;
+                }
                 out.push_str(&format!(
                     "  <channel id=\"{}\">\n    <display-name>{}</display-name>\n",
                     xml_attr(&c.id),
@@ -564,6 +586,9 @@ impl AppStore {
                 out.push_str("  </channel>\n");
             }
             for p in &state.data.programmes {
+                if !wanted.contains(&p.channel_id) {
+                    continue;
+                }
                 out.push_str(&format!(
                     "  <programme channel=\"{}\" start=\"{}\" stop=\"{}\">\n    <title>{}</title>\n",
                     xml_attr(&p.channel_id),
