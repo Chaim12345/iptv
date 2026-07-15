@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Multipart, Path, Query, State},
-    routing::{get, post},
+    routing::{delete, get, post},
     response::IntoResponse,
     Json, Router,
 };
@@ -57,6 +57,10 @@ pub fn build(store: Arc<AppStore>) -> Router {
         // Curated sources
         .route("/api/sources/fetch", post(fetch_source))
         .route("/api/sources", get(list_sources))
+        // VOD indexers + search (Phase 2)
+        .route("/api/indexers", get(list_indexers).post(add_indexer))
+        .route("/api/indexers/:name", delete(delete_indexer))
+        .route("/api/vod/search", get(vod_search))
         // Curation pipeline
         .route("/api/pipeline/status", get(pipeline_status))
         .route("/api/pipeline/run", post(pipeline_run))
@@ -273,6 +277,63 @@ async fn jellyfin_m3u(
 async fn jellyfin_xmltv(State(store): State<Arc<AppStore>>) -> impl IntoResponse {
     let body = store.render_xmltv();
     ([(axum::http::header::CONTENT_TYPE, "application/xml")], body)
+}
+
+// ── VOD indexers + search ───────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct VodSearchQuery {
+    pub q: Option<String>,
+    pub category: Option<String>,
+}
+
+/// List configured indexers (API keys redacted).
+async fn list_indexers(State(store): State<Arc<AppStore>>) -> Json<Value> {
+    let list: Vec<_> = store.get_indexers().iter().map(|c| c.redacted()).collect();
+    Json(json!({ "indexers": list }))
+}
+
+/// Add or replace an indexer.
+async fn add_indexer(
+    State(store): State<Arc<AppStore>>,
+    Json(cfg): Json<crate::services::indexer::IndexerConfig>,
+) -> Result<Json<Value>, AppError> {
+    if cfg.name.trim().is_empty() {
+        return Err(AppError::BadRequest("Indexer 'name' is required".into()));
+    }
+    store
+        .add_indexer(cfg)
+        .map_err(|e| AppError::Internal(format!("Failed to save indexer: {}", e)))?;
+    Ok(Json(json!({ "status": "success" })))
+}
+
+/// Remove an indexer by name.
+async fn delete_indexer(
+    State(store): State<Arc<AppStore>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, AppError> {
+    match store
+        .remove_indexer(&name)
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    {
+        true => Ok(Json(json!({ "status": "success", "deleted": true }))),
+        false => Err(AppError::NotFound(format!("Indexer '{}' not found", name))),
+    }
+}
+
+/// Search all enabled indexers and return normalized, deduped results.
+async fn vod_search(
+    State(store): State<Arc<AppStore>>,
+    Query(q): Query<VodSearchQuery>,
+) -> Result<Json<Value>, AppError> {
+    let query = crate::services::indexer::SearchQuery {
+        text: q.q.unwrap_or_default(),
+        category: q.category.unwrap_or_default(),
+    };
+    let client = crate::services::pipeline::http_client(15)
+        .ok_or_else(|| AppError::Internal("failed to build HTTP client".into()))?;
+    let results = crate::services::indexer::search_all(client, store.get_indexers(), query).await;
+    Ok(Json(json!({ "total": results.len(), "results": results })))
 }
 
 // ── Channels ───────────────────────────────────────────────────────────────

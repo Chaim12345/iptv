@@ -6,6 +6,7 @@ use tracing::{error, info};
 
 use crate::config::AppConfig;
 use crate::models::{EpgData, Playlist, Programme};
+use crate::services::indexer::IndexerConfig;
 
 /// Progress of the background curation pipeline (fetch → dedupe → probe → EPG).
 #[derive(Debug, Clone, Default, Serialize)]
@@ -169,6 +170,8 @@ pub struct AppStore {
     working: RwLock<Option<Playlist>>,
     /// Curation pipeline progress, exposed at /api/pipeline/status.
     pipeline: RwLock<PipelineStatus>,
+    /// Operator-configured indexers (Torznab + bundled Internet Archive).
+    indexers: RwLock<Vec<IndexerConfig>>,
 }
 
 impl AppStore {
@@ -179,6 +182,7 @@ impl AppStore {
             epg: RwLock::new(None),
             working: RwLock::new(None),
             pipeline: RwLock::new(PipelineStatus::default()),
+            indexers: RwLock::new(Vec::new()),
         }
     }
 
@@ -273,6 +277,17 @@ impl AppStore {
                     }
                 }
             }
+        }
+
+        // Load indexer config — default to Internet Archive only when absent.
+        // No piracy indexers are ever bundled (source-neutral guardrail).
+        {
+            let loaded = match tokio::fs::read_to_string(&self.config.indexers_file).await {
+                Ok(content) => serde_json::from_str::<Vec<IndexerConfig>>(&content).ok(),
+                Err(_) => None,
+            };
+            *self.indexers.write().unwrap() =
+                loaded.unwrap_or_else(|| vec![IndexerConfig::internet_archive_default()]);
         }
 
         Ok(())
@@ -530,6 +545,45 @@ impl AppStore {
         }
         
         std::fs::write(&self.config.working_file, json_str)?;
+        Ok(())
+    }
+
+    // ── Indexers ──
+
+    pub fn get_indexers(&self) -> Vec<IndexerConfig> {
+        self.indexers.read().unwrap().clone()
+    }
+
+    /// Add or replace an indexer (matched by name), then persist.
+    pub fn add_indexer(&self, cfg: IndexerConfig) -> anyhow::Result<()> {
+        {
+            let mut list = self.indexers.write().unwrap();
+            list.retain(|c| c.name != cfg.name);
+            list.push(cfg);
+        }
+        self.persist_indexers()
+    }
+
+    /// Remove an indexer by name. Returns whether one was removed.
+    pub fn remove_indexer(&self, name: &str) -> anyhow::Result<bool> {
+        let removed = {
+            let mut list = self.indexers.write().unwrap();
+            let before = list.len();
+            list.retain(|c| c.name != name);
+            before != list.len()
+        };
+        if removed {
+            self.persist_indexers()?;
+        }
+        Ok(removed)
+    }
+
+    fn persist_indexers(&self) -> anyhow::Result<()> {
+        let json = {
+            let list = self.indexers.read().unwrap();
+            serde_json::to_string_pretty(&*list)?
+        };
+        std::fs::write(&self.config.indexers_file, json)?;
         Ok(())
     }
 

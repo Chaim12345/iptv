@@ -54,12 +54,12 @@ every phase.
 | JF-01 | Phase 1 — Jellyfin IPTV Feed | Complete |
 | JF-02 | Phase 1 — Jellyfin IPTV Feed | Complete |
 | OPS-03 | Phase 1 — Jellyfin IPTV Feed | Complete |
-| IDX-01 | Phase 2 — Indexer Integration | Pending |
-| IDX-02 | Phase 2 — Indexer Integration | Pending |
-| IDX-03 | Phase 2 — Indexer Integration | Pending |
-| IDX-04 | Phase 2 — Indexer Integration | Pending |
-| IDX-05 | Phase 2 — Indexer Integration | Pending |
-| OPS-01 | Phase 2 — Indexer Integration | Pending |
+| IDX-01 | Phase 2 — Indexer Integration | Complete |
+| IDX-02 | Phase 2 — Indexer Integration | Complete |
+| IDX-03 | Phase 2 — Indexer Integration | Complete |
+| IDX-04 | Phase 2 — Indexer Integration | Complete |
+| IDX-05 | Phase 2 — Indexer Integration | Complete |
+| OPS-01 | Phase 2 — Indexer Integration | Complete |
 | STR-01 | Phase 3 — Live-Torrent Streaming Engine | Pending |
 | STR-02 | Phase 3 — Live-Torrent Streaming Engine | Pending |
 | STR-03 | Phase 3 — Live-Torrent Streaming Engine | Pending |

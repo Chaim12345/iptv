@@ -14,5 +14,21 @@ services:
       - IPTV_DATA_DIR=/app/data
     restart: unless-stopped
 
+  # Optional Torznab indexer sidecar (Phase 2, IDX-02). Runs as a SEPARATE
+  # service reached over HTTP — never linked into the Rust binary (indexarr-rs
+  # is AGPL-3.0). Source legality is the operator's responsibility: configure
+  # only legal indexers. Add it in SIGNAL via POST /api/indexers with
+  # { "name": "indexarr", "kind": "torznab", "base_url": "http://indexarr:8080" }.
+  # Enable with:  docker compose --profile indexer up
+  indexarr:
+    image: ghcr.io/ausagentsmith-org/indexarr-rs:latest
+    profiles: ["indexer"]
+    ports:
+      - "8191:8080"
+    volumes:
+      - indexarr-data:/data
+    restart: unless-stopped
+
 volumes:
   iptv-data:
+  indexarr-data:
