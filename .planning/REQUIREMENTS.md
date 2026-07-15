@@ -60,12 +60,12 @@ every phase.
 | IDX-04 | Phase 2 — Indexer Integration | Complete |
 | IDX-05 | Phase 2 — Indexer Integration | Complete |
 | OPS-01 | Phase 2 — Indexer Integration | Complete |
-| STR-01 | Phase 3 — Live-Torrent Streaming Engine | Pending |
-| STR-02 | Phase 3 — Live-Torrent Streaming Engine | Pending |
-| STR-03 | Phase 3 — Live-Torrent Streaming Engine | Pending |
-| STR-04 | Phase 3 — Live-Torrent Streaming Engine | Pending |
-| STR-05 | Phase 3 — Live-Torrent Streaming Engine | Pending |
-| OPS-02 | Phase 3 — Live-Torrent Streaming Engine | Pending |
+| STR-01 | Phase 3 — Live-Torrent Streaming Engine | Complete |
+| STR-02 | Phase 3 — Live-Torrent Streaming Engine | Complete |
+| STR-03 | Phase 3 — Live-Torrent Streaming Engine | Complete |
+| STR-04 | Phase 3 — Live-Torrent Streaming Engine | Complete |
+| STR-05 | Phase 3 — Live-Torrent Streaming Engine | Partial |
+| OPS-02 | Phase 3 — Live-Torrent Streaming Engine | Partial |
 | JF-03 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
 | JF-04 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |
 | JF-05 | Phase 4 — Jellyfin Live-Torrent Bridge & STRM Library | Pending |

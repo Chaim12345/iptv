@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub epg_folder: PathBuf,
     pub working_file: PathBuf,
     pub indexers_file: PathBuf,
+    pub torrent_cache: PathBuf,
     pub max_upload_bytes: usize,
     pub port: u16,
     /// Concurrent stream probes during the curation pipeline.
@@ -28,6 +29,7 @@ impl AppConfig {
             epg_folder: data_dir.join("epg"),
             working_file: data_dir.join("working_channels.json"),
             indexers_file: data_dir.join("indexers.json"),
+            torrent_cache: data_dir.join("torrent-cache"),
             check_concurrency: std::env::var("IPTV_CHECK_CONCURRENCY")
                 .ok()
                 .and_then(|v| v.parse().ok())

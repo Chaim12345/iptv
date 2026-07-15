@@ -61,6 +61,9 @@ pub fn build(store: Arc<AppStore>) -> Router {
         .route("/api/indexers", get(list_indexers).post(add_indexer))
         .route("/api/indexers/:name", delete(delete_indexer))
         .route("/api/vod/search", get(vod_search))
+        .route("/api/vod/resolve", get(vod_resolve))
+        .route("/api/vod/probe", get(vod_probe))
+        .route("/api/vod/stream", get(vod_stream))
         // Curation pipeline
         .route("/api/pipeline/status", get(pipeline_status))
         .route("/api/pipeline/run", post(pipeline_run))
@@ -334,6 +337,137 @@ async fn vod_search(
         .ok_or_else(|| AppError::Internal("failed to build HTTP client".into()))?;
     let results = crate::services::indexer::search_all(client, store.get_indexers(), query).await;
     Ok(Json(json!({ "total": results.len(), "results": results })))
+}
+
+// ── Live-torrent streaming (librqbit) ───────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct MagnetQuery {
+    pub magnet: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct StreamQuery {
+    pub magnet: Option<String>,
+    pub file: Option<usize>,
+}
+
+fn require_engine(
+    store: &Arc<AppStore>,
+) -> Result<std::sync::Arc<crate::services::torrent::TorrentEngine>, AppError> {
+    store
+        .get_torrent_engine()
+        .ok_or_else(|| AppError::Internal("torrent streaming engine not ready yet".into()))
+}
+
+/// List a torrent's files (metadata only, no download).
+async fn vod_resolve(
+    State(store): State<Arc<AppStore>>,
+    Query(q): Query<MagnetQuery>,
+) -> Result<Json<Value>, AppError> {
+    let magnet = q.magnet.ok_or_else(|| AppError::BadRequest("'magnet' is required".into()))?;
+    let engine = require_engine(&store)?;
+    let r = engine
+        .resolve(&magnet)
+        .await
+        .map_err(|e| AppError::BadGateway(format!("resolve failed: {}", e)))?;
+    Ok(Json(json!(r)))
+}
+
+/// Report whether a torrent is streamable before surfacing it.
+async fn vod_probe(
+    State(store): State<Arc<AppStore>>,
+    Query(q): Query<MagnetQuery>,
+) -> Result<Json<Value>, AppError> {
+    let magnet = q.magnet.ok_or_else(|| AppError::BadRequest("'magnet' is required".into()))?;
+    let engine = require_engine(&store)?;
+    Ok(Json(json!(engine.probe(&magnet).await)))
+}
+
+/// Parse an HTTP `Range: bytes=start-end` header into (start, Option<end>).
+fn parse_byte_range(h: &axum::http::HeaderMap) -> Option<(u64, Option<u64>)> {
+    let v = h.get(axum::http::header::RANGE)?.to_str().ok()?;
+    let spec = v.strip_prefix("bytes=")?;
+    let (s, e) = spec.split_once('-')?;
+    let start: u64 = s.trim().parse().ok()?;
+    let end = e.trim();
+    let end = if end.is_empty() { None } else { end.parse().ok() };
+    Some((start, end))
+}
+
+/// Stream one file of a torrent over HTTP byte-range (no persistent download).
+/// This is the URL Phase 4's STRM files point Jellyfin at.
+async fn vod_stream(
+    headers: axum::http::HeaderMap,
+    State(store): State<Arc<AppStore>>,
+    Query(q): Query<StreamQuery>,
+) -> Result<axum::response::Response, AppError> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    let magnet = q.magnet.ok_or_else(|| AppError::BadRequest("'magnet' is required".into()))?;
+    let file = q.file.unwrap_or(0);
+    let engine = require_engine(&store)?;
+
+    let resolved = engine
+        .resolve(&magnet)
+        .await
+        .map_err(|e| AppError::BadGateway(format!("resolve failed: {}", e)))?;
+    let size = resolved
+        .files
+        .get(file)
+        .map(|f| f.size)
+        .ok_or_else(|| AppError::NotFound(format!("file index {} out of range", file)))?;
+    let content_type = resolved
+        .files
+        .get(file)
+        .map(|f| mime_guess::from_path(&f.name).first_or_octet_stream().to_string())
+        .unwrap_or_else(|| "application/octet-stream".into());
+
+    let mut reader = engine
+        .open(&magnet, file)
+        .await
+        .map_err(|e| AppError::BadGateway(format!("stream open failed: {}", e)))?;
+
+    match parse_byte_range(&headers) {
+        Some((start, end)) if start < size => {
+            let end = end.unwrap_or(size - 1).min(size - 1);
+            let len = end + 1 - start;
+            reader
+                .seek(std::io::SeekFrom::Start(start))
+                .await
+                .map_err(|e| AppError::Internal(format!("seek failed: {}", e)))?;
+            let body = axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(
+                reader.take(len),
+            ));
+            Ok((
+                axum::http::StatusCode::PARTIAL_CONTENT,
+                [
+                    (axum::http::header::CONTENT_TYPE, content_type),
+                    (axum::http::header::ACCEPT_RANGES, "bytes".to_string()),
+                    (
+                        axum::http::header::CONTENT_RANGE,
+                        format!("bytes {}-{}/{}", start, end, size),
+                    ),
+                    (axum::http::header::CONTENT_LENGTH, len.to_string()),
+                ],
+                body,
+            )
+                .into_response())
+        }
+        _ => {
+            let body = axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(reader));
+            Ok((
+                axum::http::StatusCode::OK,
+                [
+                    (axum::http::header::CONTENT_TYPE, content_type),
+                    (axum::http::header::ACCEPT_RANGES, "bytes".to_string()),
+                    (axum::http::header::CONTENT_LENGTH, size.to_string()),
+                ],
+                body,
+            )
+                .into_response())
+        }
+    }
 }
 
 // ── Channels ───────────────────────────────────────────────────────────────

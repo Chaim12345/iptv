@@ -43,6 +43,22 @@ async fn main() -> anyhow::Result<()> {
 
     let store = Arc::new(store);
 
+    // Live-torrent streaming engine (librqbit). Non-fatal: if it fails to
+    // start, VOD stream endpoints report unavailable but the rest runs.
+    {
+        let bg_store = Arc::clone(&store);
+        let cache = config.torrent_cache.clone();
+        tokio::spawn(async move {
+            match services::torrent::TorrentEngine::new(cache).await {
+                Ok(engine) => {
+                    bg_store.set_torrent_engine(Arc::new(engine));
+                    info!("Live-torrent streaming engine ready");
+                }
+                Err(e) => tracing::warn!("Torrent engine failed to start: {}", e),
+            }
+        });
+    }
+
     // Curation pipeline: fetch all sources, dedupe, probe streams, merge EPG.
     // Skips itself when the working set is still fresh.
     {

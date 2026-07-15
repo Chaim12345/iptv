@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use serde::Serialize;
 use tracing::{error, info};
@@ -7,6 +7,7 @@ use tracing::{error, info};
 use crate::config::AppConfig;
 use crate::models::{EpgData, Playlist, Programme};
 use crate::services::indexer::IndexerConfig;
+use crate::services::torrent::TorrentEngine;
 
 /// Progress of the background curation pipeline (fetch → dedupe → probe → EPG).
 #[derive(Debug, Clone, Default, Serialize)]
@@ -172,6 +173,8 @@ pub struct AppStore {
     pipeline: RwLock<PipelineStatus>,
     /// Operator-configured indexers (Torznab + bundled Internet Archive).
     indexers: RwLock<Vec<IndexerConfig>>,
+    /// Live-torrent streaming engine (librqbit), initialized at startup.
+    torrent: RwLock<Option<Arc<TorrentEngine>>>,
 }
 
 impl AppStore {
@@ -183,7 +186,17 @@ impl AppStore {
             working: RwLock::new(None),
             pipeline: RwLock::new(PipelineStatus::default()),
             indexers: RwLock::new(Vec::new()),
+            torrent: RwLock::new(None),
         }
+    }
+
+    /// Install the live-torrent streaming engine (built async in main).
+    pub fn set_torrent_engine(&self, engine: Arc<TorrentEngine>) {
+        *self.torrent.write().unwrap() = Some(engine);
+    }
+
+    pub fn get_torrent_engine(&self) -> Option<Arc<TorrentEngine>> {
+        self.torrent.read().unwrap().clone()
     }
 
     pub fn config(&self) -> &AppConfig {
