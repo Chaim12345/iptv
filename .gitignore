@@ -1,0 +1,51 @@
+# Rust build artifacts
+target/
+**/target/
+
+# Node
+node_modules/
+**/node_modules/
+dist/
+frontend/dist/
+
+# wasm-pack output (generated)
+iptv-wasm/pkg/
+
+# Runtime data (fetched playlists, merged EPG, working set — regenerable)
+iptv-rs/data/
+
+# Logs
+*.log
+server.log
+
+# Tooling / editor state
+.omc/
+.DS_Store
+
+# Local design reference (downloaded Stitch pack)
+.stitch_ref/
+
+# GSD generated graph blobs (regenerable via /gsd-graphify build) — keep GRAPH_REPORT.md
+.planning/graphs/graph.json
+.planning/graphs/graph.html
+.planning/graphs/.last-build-snapshot.json
+
+# graphify working output dir (regenerable)
+graphify-out/
+
+# WSL-local cargo target redirect (do not commit — Linux path breaks Windows)
+iptv-rs/.cargo/
+
+# External reference clones (their own git repos; vendored dist is committed
+# separately at frontend/public/webtor-embed.js)
+iptv-rs/embed-sdk-js/
+iptv-rs/self-hosted/
+
+# Stray build error dumps
+iptv-rs/build.err
+*.err
+
+# Session scratch / test artifacts
+scripts-scratch/
+iptv-rs/screenshots/
+.claude/

@@ -1,0 +1,15 @@
+# Keep the container build clean + reproducible (build from source inside the image).
+# CRITICAL: exclude iptv-rs/.cargo — its WSL target-dir redirect points builds at
+# /root/.cache and would make the Dockerfile's target/release/iptv-rs COPY fail.
+iptv-rs/.cargo/
+**/target/
+**/node_modules/
+iptv-wasm/pkg/
+iptv-rs/data/
+iptv-rs/static/
+frontend/dist/
+.planning/
+.git/
+.stitch_ref/
+graphify-out/
+*.log

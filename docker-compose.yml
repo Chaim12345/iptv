@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  iptv:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Override with IPTV_HOST_PORT if 5000 is already taken on the host
+      # (e.g. a different app already bound there) — e.g. IPTV_HOST_PORT=8000.
+      - "${IPTV_HOST_PORT:-5000}:5000"
+    volumes:
+      - iptv-data:/app/data
+    environment:
+      - IPTV_PORT=5000
+      - IPTV_DATA_DIR=/app/data
+      # STRM files (and any absolute links SIGNAL emits) embed this so other
+      # containers/browsers can reach it. Defaults to the internal compose
+      # network name (Jellyfin uses this); override for a public-facing
+      # deployment, e.g. IPTV_PUBLIC_URL=http://<host-ip>:8000.
+      - IPTV_PUBLIC_URL=${IPTV_PUBLIC_URL:-http://iptv:5000}
+    restart: unless-stopped
+
+  # Jellyfin media server. Reads SIGNAL's data volume read-only at /signal
+  # so /signal/library is scannable as a Movies/TV library.
+  # Enable with:  docker compose --profile jellyfin up
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    profiles: ["jellyfin"]
+    ports:
+      - "8096:8096"
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+      - iptv-data:/signal:ro
+    depends_on:
+      - iptv
+    restart: unless-stopped
+
+  # Torznab indexer sidecar (Phase 2, IDX-02). Runs as a SEPARATE service
+  # reached over HTTP — never linked into the Rust binary (indexarr-rs is
+  # AGPL-3.0). Source legality is the operator's responsibility: configure
+  # only legal indexers. Add it in SIGNAL via POST /api/indexers with
+  # { "name": "indexarr", "kind": "torznab", "base_url": "http://indexarr:8080" }.
+  # Enable with:  docker compose --profile indexer up
+  indexarr:
+    image: ghcr.io/ausagentsmith-org/indexarr-rs:latest
+    profiles: ["indexer"]
+    ports:
+      - "8191:8080"
+    volumes:
+      - indexarr-data:/data
+    environment:
+      - INDEXARR_DB_URL=postgres://indexarr:indexarr@indexarr-db:5432/indexarr
+      - INDEXARR_DATA_DIR=/data
+    depends_on:
+      indexarr-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  indexarr-db:
+    image: postgres:16-alpine
+    profiles: ["indexer"]
+    environment:
+      POSTGRES_DB: indexarr
+      POSTGRES_USER: indexarr
+      POSTGRES_PASSWORD: indexarr
+    volumes:
+      - indexarr-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indexarr"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Webtor — torrent streaming server. Streams content directly from torrents
+  # without downloading the whole file. SIGNAL creates STRM files pointing
+  # to Webtor's streaming endpoints, which Jellyfin then plays.
+  # Enable with:  docker compose --profile streaming up
+  webtor:
+    image: ghcr.io/webtor-io/self-hosted:latest
+    # Built locally from ./iptv-rs/self-hosted (docker build .) and tagged to
+    # this name. ghcr.io is blocked behind the corporate VPN, so never pull —
+    # use the local image. Rebuild there and re-tag to update.
+    pull_policy: never
+    profiles: ["streaming"]
+    ports:
+      # Host 8080 is taken (Windows-side under mirrored networking), so publish
+      # on 8088. Container stays 8080.
+      - "8088:8080"
+    volumes:
+      - webtor-data:/data
+      - webtor-pgdata:/pgdata
+    environment:
+      # Full URL WITH scheme (webtor builds its links from this). Must be a URL
+      # the browser can reach: localhost for same-machine, else the host LAN IP.
+      - DOMAIN=${WEBTOR_DOMAIN:-http://localhost:8088}
+    restart: unless-stopped
+
+  # TorrServer — lightweight single-binary torrent streaming server. Connects to
+  # real BitTorrent peers (TCP/uTP/DHT) server-side and streams any file over
+  # HTTP byte-range straight into a browser <video> (no WebRTC, no transcode).
+  # arm64-native. The SIGNAL frontend points magnet playback at this instance's
+  # /stream endpoint. Reachable by the browser, so publish on a routable host.
+  # Enable with:  docker compose --profile streaming up
+  torrserver:
+    image: ghcr.io/yourok/torrserver:latest
+    profiles: ["streaming"]
+    ports:
+      - "8090:8090"
+    volumes:
+      - torrserver-data:/opt/ts
+    restart: unless-stopped
+
+volumes:
+  iptv-data:
+  indexarr-data:
+  indexarr-db-data:
+  jellyfin-config:
+  jellyfin-cache:
+  webtor-data:
+  webtor-pgdata:
+  torrserver-data:
