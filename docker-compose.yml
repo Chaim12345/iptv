@@ -6,14 +6,19 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      # Override with IPTV_HOST_PORT if 5000 is already taken on the host
+      # (e.g. a different app already bound there) — e.g. IPTV_HOST_PORT=8000.
+      - "${IPTV_HOST_PORT:-5000}:5000"
     volumes:
       - iptv-data:/app/data
     environment:
       - IPTV_PORT=5000
       - IPTV_DATA_DIR=/app/data
-      # STRM files embed this so the Jellyfin container can reach the stream API.
-      - IPTV_PUBLIC_URL=http://iptv:5000
+      # STRM files (and any absolute links SIGNAL emits) embed this so other
+      # containers/browsers can reach it. Defaults to the internal compose
+      # network name (Jellyfin uses this); override for a public-facing
+      # deployment, e.g. IPTV_PUBLIC_URL=http://<host-ip>:8000.
+      - IPTV_PUBLIC_URL=${IPTV_PUBLIC_URL:-http://iptv:5000}
     restart: unless-stopped
 
   # Jellyfin media server. Reads SIGNAL's data volume read-only at /signal
