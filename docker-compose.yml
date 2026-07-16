@@ -98,6 +98,21 @@ services:
       - DOMAIN=${WEBTOR_DOMAIN:-http://localhost:8088}
     restart: unless-stopped
 
+  # TorrServer — lightweight single-binary torrent streaming server. Connects to
+  # real BitTorrent peers (TCP/uTP/DHT) server-side and streams any file over
+  # HTTP byte-range straight into a browser <video> (no WebRTC, no transcode).
+  # arm64-native. The SIGNAL frontend points magnet playback at this instance's
+  # /stream endpoint. Reachable by the browser, so publish on a routable host.
+  # Enable with:  docker compose --profile streaming up
+  torrserver:
+    image: ghcr.io/yourok/torrserver:latest
+    profiles: ["streaming"]
+    ports:
+      - "8090:8090"
+    volumes:
+      - torrserver-data:/opt/ts
+    restart: unless-stopped
+
 volumes:
   iptv-data:
   indexarr-data:
@@ -106,3 +121,4 @@ volumes:
   jellyfin-cache:
   webtor-data:
   webtor-pgdata:
+  torrserver-data:

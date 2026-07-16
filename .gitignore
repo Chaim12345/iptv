@@ -44,3 +44,8 @@ iptv-rs/self-hosted/
 # Stray build error dumps
 iptv-rs/build.err
 *.err
+
+# Session scratch / test artifacts
+scripts-scratch/
+iptv-rs/screenshots/
+.claude/
