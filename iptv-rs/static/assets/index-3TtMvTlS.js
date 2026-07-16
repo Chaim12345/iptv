@@ -1258,12 +1258,12 @@
             do {
                 if (r >= i.length) break;
                 l = i[r++], a += l;
-            }while (l === 255)
+            }while (l === 255);
             o = 0;
             do {
                 if (r >= i.length) break;
                 l = i[r++], o += l;
-            }while (l === 255)
+            }while (l === 255);
             const c = i.length - r;
             let d = r;
             if (o < c) r += o;
@@ -15649,7 +15649,7 @@ ${n.stack}` : s;
   .vod-cats button.is-active{background:#4FA9F5;border-color:#4FA9F5;color:#06121f}
   .vod-close{margin-left:auto;font-size:20px;line-height:1;background:none;border:none;color:#8A94A6;cursor:pointer;padding:6px 10px}
   .vod-close:hover{color:#fff}
-  .vod-body{flex:1;overflow:auto;padding:18px 22px}
+  .vod-body{flex:1;overflow:auto;padding:18px 22px;display:flex;flex-direction:column;min-height:0}
   .vod-status{color:#8A94A6;font-size:13px;padding:10px 2px}
   .vod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
   .vod-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:14px;
@@ -15659,11 +15659,11 @@ ${n.stack}` : s;
   .vod-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:#8A94A6}
   .vod-chip{background:rgba(255,255,255,.07);border-radius:6px;padding:2px 7px}
   .vod-src{color:#3DD68C}
-  .vod-player{display:none;flex-direction:column;height:100%}
+  .vod-player{display:none;flex-direction:column;flex:1;min-height:0}
   .vod-player.is-open{display:flex}
   .vod-player-bar{display:flex;align-items:center;gap:12px;padding:0 0 12px}
   .vod-player-title{font-family:'Sora',sans-serif;font-weight:600}
-  .vod-mount{flex:1;min-height:0;background:#000;border-radius:12px;overflow:hidden}
+  .vod-mount{flex:1;min-height:360px;background:#000;border-radius:12px;overflow:hidden}
   .vod-mount iframe{width:100%;height:100%;border:0;display:block}
   .vod-foot{display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#8A94A6}
   .vod-foot input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#E8EDF2;
