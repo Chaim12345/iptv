@@ -6,9 +6,9 @@
    (Internet Archive by default); a result's torrent URL is handed to webtor,
    whose backend fetches it (incl. HTTP web seeds) and streams to the player. */
 
-// webtor embed SDK is loaded at runtime and attaches window.webtor.push().
+// WebTorrent browser bundle is loaded at runtime and attaches window.WebTorrent.
 declare global {
-  interface Window { webtor?: { push: (cfg: Record<string, unknown>) => void } }
+  interface Window { WebTorrent?: new (opts?: unknown) => any }
 }
 
 interface VodResult {
@@ -31,21 +31,20 @@ const getWebtorBase = () =>
   (localStorage.getItem(WEBTOR_BASE_KEY) || DEFAULT_WEBTOR_BASE).replace(/\/+$/, '');
 const setWebtorBase = (v: string) => localStorage.setItem(WEBTOR_BASE_KEY, v.trim());
 
-// ── Lazy-load the vendored embed SDK once ────────────────────────────────────
-let sdkPromise: Promise<void> | null = null;
-function loadSdk(): Promise<void> {
-  if (window.webtor && typeof window.webtor.push === 'function') return Promise.resolve();
-  if (sdkPromise) return sdkPromise;
-  sdkPromise = new Promise<void>((resolve, reject) => {
+// ── Lazy-load the vendored WebTorrent browser bundle once ────────────────────
+let wtScriptPromise: Promise<void> | null = null;
+function loadWebTorrent(): Promise<void> {
+  if (window.WebTorrent) return Promise.resolve();
+  if (wtScriptPromise) return wtScriptPromise;
+  wtScriptPromise = new Promise<void>((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = '/webtor-embed.js';
+    s.src = '/webtorrent.min.js';
     s.async = true;
-    s.setAttribute('charset', 'utf-8');
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load the webtor embed SDK'));
+    s.onerror = () => reject(new Error('Failed to load WebTorrent'));
     document.head.appendChild(s);
   });
-  return sdkPromise;
+  return wtScriptPromise;
 }
 
 const fmtSize = (n?: number) =>
@@ -240,7 +239,7 @@ async function play(r: VodResult) {
   // endpoint — same origin, no CORS, no peers — so it works even on networks
   // that block BitTorrent. Peer-only magnets go to the webtor backend, which
   // needs real peer/DHT connectivity (run it where peers are reachable).
-  if (r.url.startsWith('magnet:')) await playViaWebtor(r);
+  if (r.url.startsWith('magnet:')) await playViaWebtorrent(r);
   else await playViaDirect(r);
 }
 
@@ -274,37 +273,73 @@ async function playViaDirect(r: VodResult) {
   });
 }
 
-// Peer-swarm: hand the magnet to the webtor backend (needs BitTorrent peers).
-async function playViaWebtor(r: VodResult) {
+// Peer-swarm: stream the magnet client-side with WebTorrent (in-browser).
+// NOTE: browser WebTorrent finds peers only over WebRTC (WSS trackers) or HTTP
+// web seeds — it cannot reach plain TCP/uTP BitTorrent peers. Torrents without
+// a WebRTC/web-seed source won't play here.
+let wtClient: any = null;
+async function playViaWebtorrent(r: VodResult) {
   try {
-    await loadSdk();
+    await loadWebTorrent();
   } catch (e) {
-    mount!.innerHTML = `<div class="vod-status" style="padding:20px">Could not load the player SDK: ${(e as Error).message}</div>`;
+    mount!.innerHTML = `<div class="vod-status" style="padding:20px">Could not load WebTorrent: ${escapeHtml((e as Error).message)}</div>`;
     return;
   }
-  mount!.innerHTML = '';
-  const cfg: Record<string, unknown> = {
-    id: 'vodMount',
-    baseUrl: getWebtorBase(),
-    title: r.title,
-    width: '100%',
-    height: '100%',
-    features: { continue: false },
-    on: (e: { name?: string }) => {
-      if (e && e.name === 'torrent error') {
-        mount!.innerHTML =
-          `<div class="vod-status" style="padding:20px">Couldn't fetch this torrent via webtor ` +
-          `(<code>${escapeHtml(getWebtorBase())}</code>). The backend must be running and able to ` +
-          `reach BitTorrent peers — run it on a network with open egress.</div>`;
+  // One torrent at a time — tear down any previous client.
+  if (wtClient) { try { wtClient.destroy(); } catch { /* ignore */ } wtClient = null; }
+  wtClient = new window.WebTorrent!();
+  wtClient.on('error', (err: unknown) => {
+    mount!.innerHTML =
+      `<div class="vod-status" style="padding:20px">WebTorrent error: ${escapeHtml(String((err as Error)?.message || err))}</div>`;
+  });
+
+  // Add WSS trackers so WebTorrent can discover WebRTC peers for this infohash.
+  let magnet = r.url;
+  const wss = [
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.webtorrent.dev',
+    'wss://tracker.files.fm:7073/announce',
+  ];
+  for (const t of wss) { if (magnet.indexOf(t) === -1) magnet += '&tr=' + encodeURIComponent(t); }
+
+  mount!.innerHTML = '<div class="vod-status" style="padding:20px">Connecting to WebRTC peers…</div>';
+  let started = false;
+  const timer = setTimeout(() => {
+    if (!started) {
+      mount!.innerHTML =
+        `<div class="vod-status" style="padding:20px">No WebRTC peers or web-seeds found for this torrent. ` +
+        `Browser WebTorrent can't reach ordinary BitTorrent peers, so a release with no WebRTC/web-seed ` +
+        `source won't stream here.</div>`;
+    }
+  }, 30000);
+
+  try {
+    wtClient.add(magnet, (torrent: any) => {
+      started = true;
+      clearTimeout(timer);
+      const vids = torrent.files
+        .filter((f: any) => /\.(mp4|m4v|webm|mkv|mov|avi)$/i.test(f.name))
+        .sort((a: any, b: any) => b.length - a.length);
+      const file = vids[0] || torrent.files[0];
+      if (!file) {
+        mount!.innerHTML = '<div class="vod-status" style="padding:20px">No playable file in this torrent.</div>';
+        return;
       }
-    },
-  };
-  const poster = iaPoster(r.url);
-  if (poster) cfg.poster = poster;
-  // Pass the ORIGINAL full magnet (with trackers) unchanged — never a bare
-  // infohash magnet, which strips trackers and forces DHT-only.
-  cfg.magnet = r.url;
-  window.webtor!.push(cfg);
+      mount!.innerHTML = '';
+      const video = document.createElement('video');
+      video.controls = true;
+      video.autoplay = true;
+      video.setAttribute('playsinline', '');
+      video.style.cssText = 'width:100%;height:100%;background:#000';
+      mount!.appendChild(video);
+      if (typeof file.streamTo === 'function') file.streamTo(video);
+      else if (typeof file.renderTo === 'function') file.renderTo(video);
+      else { mount!.innerHTML = ''; file.appendTo(mount, { autoplay: true, controls: true }); }
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    mount!.innerHTML = `<div class="vod-status" style="padding:20px">Couldn't add torrent: ${escapeHtml(String((e as Error).message))}</div>`;
+  }
 }
 
 function escapeHtml(s: string) {
